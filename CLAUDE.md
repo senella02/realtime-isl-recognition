@@ -37,7 +37,8 @@ realtime-isl-recognition/
 
 | Module | Responsibility |
 |--------|---------------|
-| `M1/`  | Landmark extraction (MediaPipe), adaptive bounding box |
+| `pipeline/` | `contracts.py` (shared dataclasses) + `run.py` (the single main loop) |
+| `M1/`  | Landmark extraction (MediaPipe), adaptive bounding box, normalization |
 | `M3/`  | State machine, frame buffer, trigger logic |
 | `M4/`  | Model loading, inference, optimization |
 | `M2/`  | Overlay rendering, latency measurement, evaluation |
@@ -81,23 +82,42 @@ realtime-isl-recognition/
 
 ## Real-Time Pipeline (Phase 2)
 
+### Architecture decision — direct calls, single-threaded
+
+The pipeline runs as **one synchronous loop in `pipeline/run.py`**. M1, M3, M4, and M2 are plain objects whose methods the loop calls in order, passing the dataclasses defined in `pipeline/contracts.py` (see `implementation_plan/m2_plan.md` §2) as arguments and return values. **No queue, no event bus, no worker threads.**
+
+Rationale: this is a one-time-use, single-webcam, single-user demo. The only parallelism a queue would buy is overlapping inference with frame capture, but inference is event-driven (fires once per sign, target < 100 ms) and the user pauses naturally between signs. The cost of threading (shutdown coordination, race conditions, harder debugging) outweighs the benefit. The accepted trade-off is that 2–3 frames are dropped during each inference call at sign-end — acceptable because the user is between signs at that point.
+
 ### End-to-End Flow
+
+```python
+# pipeline/run.py — canonical wiring
+while running:
+    raw_frame, capture_ts = m1.grab()
+    packet         = m1.extract(raw_frame, capture_ts)   # FramePacket (incl. normalization)
+    state_update   = m3.update(packet)                   # StateUpdate (state machine + buffer fill)
+
+    prediction = None
+    if state_update.triggered:                           # Active→Idle transition this frame
+        buffer     = m3.take_buffer()                    # the 64-frame buffer
+        prediction = m4.infer(state_update.sign_event, buffer)  # blocks ~100 ms
+
+    m2.render(packet, state_update, prediction)          # overlay (must be < 5 ms)
+    m2.log(packet, state_update, prediction)             # CSV append + metrics (< 5 ms)
+```
+
+Conceptual data flow per frame:
 
 ```
 Webcam frame
-  → [M1] MediaPipe landmark extraction (75 points)
-  → [M1] Adaptive body bounding box + crop
-  → [M3] Compute hand motion score → classify frame: Idle (H) / Active (A)
-  → [M3] State machine update:
-           Idle→Active: TA consecutive active frames → start buffering
-           Active→Idle: TR consecutive idle frames  → trigger inference
-  → [M3] Sliding buffer (64 frames, fills only during active signing)
+  → [M1] MediaPipe landmark extraction (75 points) + adaptive body bbox
   → [M1] SPOTER normalization (body_normalization + hand_normalization, reused exactly)
-  → [M4] Model inference → class probabilities
-  → [M4] Extract top-3 predictions
-  → [M2] Render overlay (bbox, state, top-3 + confidence, FPS)
-  → [M2] Log latency metrics
-  → [M3] Reset buffer → Idle
+  → [M3] Hand motion score → classify frame: Idle / Active
+  → [M3] State machine: Idle→Active after TA active frames; Active→Idle after TR idle frames
+  → [M3] 64-frame sliding buffer fills only while Active
+  → [M3] On Active→Idle: emit SignEvent + buffer; main loop forwards to M4
+  → [M4] Model inference → class probabilities → top-3 (event-driven, ~100 ms)
+  → [M2] Overlay (bbox, state, top-3 + confidence, FPS) + latency log
 ```
 
 ### State Machine Parameters
@@ -151,6 +171,10 @@ These are tunable hyperparameters — default values TBD from calibration.
 
 6. **Module boundaries are real.** M1/M2/M3/M4 are separate concerns. Keep state machine logic in M3, not scattered across M1 or M4.
 
+7. **Direct calls only — no queues or threads.** The pipeline is a single synchronous loop. Modules communicate via function arguments and return values typed by the dataclasses in `pipeline/contracts.py`. Do not introduce `queue.Queue`, `threading.Thread`, `asyncio`, or any event-bus abstraction. If a future need genuinely requires parallelism, profile first and revisit this decision in the plan rather than silently adding it.
+
+8. **Render and log calls must stay under 5 ms.** Heavy analysis (confusion matrices, F1 deltas, report generation) runs offline after the live session — never inside the main loop.
+
 ---
 
 ## Setup
@@ -169,9 +193,19 @@ Raw dataset: download from Google Drive (link in `data_preprocess/README.md`), p
 - [x] Phase 1 complete: models trained and evaluated offline
 - [x] Normalization pipeline implemented and validated
 - [x] Label map and preprocessed CSVs ready
-- [ ] M1: MediaPipe landmark extractor
+- [ ] `pipeline/contracts.py`: shared dataclasses (FramePacket, StateUpdate, SignEvent, Prediction)
+- [ ] `pipeline/run.py`: single-threaded direct-call main loop
+- [ ] M1: MediaPipe landmark extractor + normalization wrapper
 - [ ] M3: State machine + frame buffer
 - [ ] M4: Model loader + inference wrapper
 - [ ] M2: Overlay renderer + latency logger
 - [ ] Integration: end-to-end pipeline
 - [ ] Evaluation: latency benchmarks, live accuracy comparison
+
+---
+
+## Architecture Decisions Log
+
+| # | Decision | Rationale | Date |
+|---|---|---|---|
+| 1 | Single-threaded direct-call pipeline; no queue / event bus | One-time-use demo; queue complexity (threads, races, shutdown) outweighs the parallelism gain. Inference is event-driven and the user pauses between signs, so 2–3 dropped frames at sign-end is acceptable. | 2026-05-06 |
