@@ -10,9 +10,8 @@ from contract.contracts import FramePacket, Prediction, SignState, StateUpdate
 # ── layout constants ──────────────────────────────────────────────────────────
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
 _PAD = 10          # generic padding (px)
-_BAR_W = 160       # max width of a confidence bar (px)
-_BAR_H = 14        # height of a confidence bar (px)
-_RIGHT_PANEL_W = 220
+_PRED_PANEL_W = 240  # prediction panel width (px)
+_PRED_ROW_H   = 28   # height per prediction row (px)
 
 # colours (BGR)
 _C_GREEN = (0, 220, 0)
@@ -44,24 +43,6 @@ def _put_text(
         cv2.putText(img, text, (x + 1, y + 1), _FONT, scale, _C_BLACK, thickness + 1, cv2.LINE_AA)
     cv2.putText(img, text, (x, y), _FONT, scale, color, thickness, cv2.LINE_AA)
 
-
-def _confidence_bar(
-    img: np.ndarray,
-    origin: tuple[int, int],
-    prob: float,
-    rank: int,
-) -> None:
-    """Draw a filled rectangle representing `prob` as a fraction of _BAR_W."""
-    x, y = origin
-    filled = max(1, int(prob * _BAR_W))
-    bar_colors = [_C_GREEN, _C_YELLOW, _C_ORANGE]
-    color = bar_colors[rank % len(bar_colors)]
-    # background track
-    cv2.rectangle(img, (x, y), (x + _BAR_W, y + _BAR_H), (60, 60, 60), -1)
-    # filled portion
-    cv2.rectangle(img, (x, y), (x + filled, y + _BAR_H), color, -1)
-    # border
-    cv2.rectangle(img, (x, y), (x + _BAR_W, y + _BAR_H), (120, 120, 120), 1)
 
 
 class OverlayRenderer:
@@ -113,29 +94,43 @@ class OverlayRenderer:
         _put_text(img, text, (width - tw - _PAD, height - _PAD), scale=0.4, color=(140, 140, 140))
 
     def _draw_predictions(self, img: np.ndarray, pred: Prediction, height: int) -> None:
-        """Render top-3 predictions with confidence bars on the right side."""
-        panel_x = img.shape[1] - _RIGHT_PANEL_W - _PAD
-        y = height // 2 - 60
+        """Minimal bottom-right panel: three rows, rank-dimmed, no bars."""
+        w = img.shape[1]
+        n = min(len(pred.top_k_glosses), 3)
 
-        # semi-transparent background panel
+        panel_h = n * _PRED_ROW_H + _PAD
+        x0 = w - _PRED_PANEL_W - _PAD
+        y0 = height - panel_h - _PAD
+
+        # semi-transparent dark background
         overlay = img.copy()
-        cv2.rectangle(
-            overlay,
-            (panel_x - _PAD, y - 24),
-            (img.shape[1] - _PAD // 2, y + 3 * 54 + _PAD),
-            _C_OVERLAY_BG,
-            -1,
-        )
-        cv2.addWeighted(overlay, 0.55, img, 0.45, 0, img)
+        cv2.rectangle(overlay,
+                      (x0 - _PAD, y0 - _PAD // 2),
+                      (w - _PAD // 2, height - _PAD // 2),
+                      _C_OVERLAY_BG, -1)
+        cv2.addWeighted(overlay, 0.65, img, 0.35, 0, img)
 
-        _put_text(img, "TOP-3 PREDICTIONS", (panel_x, y - 6), scale=0.45, color=_C_CYAN)
+        # thin green accent line on the left edge — marks rank 1
+        cv2.line(img,
+                 (x0 - _PAD + 2, y0 + 2),
+                 (x0 - _PAD + 2, y0 + _PRED_ROW_H - 2),
+                 _C_GREEN, 2)
 
-        for rank, (gloss, prob) in enumerate(zip(pred.top_k_glosses, pred.top_k_probs)):
-            row_y = y + rank * 54 + 20
-            # gloss label
-            _put_text(img, f"{rank + 1}. {gloss}", (panel_x, row_y), scale=0.52, color=_C_WHITE)
-            # probability text
+        row_colors = [_C_WHITE, (175, 175, 175), (110, 110, 110)]
+
+        for rank, (gloss, prob) in enumerate(
+                zip(pred.top_k_glosses[:n], pred.top_k_probs[:n])):
+            row_y = y0 + rank * _PRED_ROW_H + _PRED_ROW_H // 2 + 4
+            color  = row_colors[rank]
+            scale  = 0.52 if rank == 0 else 0.46
+            thick  = 2    if rank == 0 else 1
+
+            _put_text(img, f"{rank + 1}.  {gloss}",
+                      (x0, row_y), scale=scale, color=color, thickness=thick)
+
             prob_text = f"{prob * 100:.1f}%"
-            _put_text(img, prob_text, (panel_x + _BAR_W + 6, row_y + _BAR_H), scale=0.45, color=_C_WHITE)
-            # bar
-            _confidence_bar(img, (panel_x, row_y + 6), prob, rank)
+            (tw, _), _ = cv2.getTextSize(prob_text, _FONT, 0.45, 1)
+            _put_text(img, prob_text,
+                      (w - _PAD * 2 - tw, row_y),
+                      scale=0.45,
+                      color=_C_CYAN if rank == 0 else color)

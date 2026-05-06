@@ -14,14 +14,14 @@ while True:
     frame = cv2.flip(frame, 1)
 
     # ── M1: extract landmarks ─────────────────────────────────────────────────
-    # landmarks, bbox = m1.extract(frame)
+    # landmarks, bbox = m1.extract(frame) (1, 150)
 
     # ── M3: update state machine, get buffer if sign detected ─────────────────
-    # buffer, state = m3.update(landmarks)
+    # buffer, state = m3.update(landmarks) 
 
     # ── M4: run inference if buffer is ready ──────────────────────────────────
     # if buffer is not None:
-    #     last_results = m4.infer(buffer)
+    #     last_results = m4.infer(buffer) 
 
     # ── M2: render overlay on frame ───────────────────────────────────────────
     # frame = m2.render(frame, bbox, state, last_results)
