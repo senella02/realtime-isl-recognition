@@ -177,24 +177,13 @@ These are tunable hyperparameters — default values TBD from calibration.
 
 ---
 
-## Setup
-
-```bash
-pip install -r data_preprocess/requirements.txt
-# Additional Phase 2 deps (to be specified): mediapipe, opencv-python, torch
-```
-
-Raw dataset: download from Google Drive (link in `data_preprocess/README.md`), place in project root, ensure paths match calls to `preprocess()`.
-
----
-
 ## Current Status (Phase 2 start)
 
 - [x] Phase 1 complete: models trained and evaluated offline
 - [x] Normalization pipeline implemented and validated
 - [x] Label map and preprocessed CSVs ready
-- [ ] `pipeline/contracts.py`: shared dataclasses (FramePacket, StateUpdate, SignEvent, Prediction)
-- [ ] `pipeline/run.py`: single-threaded direct-call main loop
+- [ ] `contract/contracts.py`: shared dataclasses (FramePacket, StateUpdate, SignEvent, Prediction)
+- [ ] `main.py`: single-threaded direct-call main loop
 - [ ] M1: MediaPipe landmark extractor + normalization wrapper
 - [ ] M3: State machine + frame buffer
 - [ ] M4: Model loader + inference wrapper
