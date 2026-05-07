@@ -14,8 +14,8 @@ After reshape to (frames, 108):
 """
 
 import numpy as np
-from body_normalization import normalize_body_inplace
-from hand_normalization import normalize_hands_inplace
+from .body_normalization import normalize_body_inplace
+from .hand_normalization import normalize_hands_inplace
 
 # New 23-joint MediaPipe body layout:
 #   0:nose  1:rightEyeInner  2:rightEye   3:rightEyeOuter

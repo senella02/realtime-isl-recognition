@@ -18,7 +18,7 @@ from collections import deque
 import cv2
 import numpy as np
 
-from buffer import M3StateMachine, normalize_buffer
+from buffer import M3StateMachine
 from contract.contracts import SignState
 from extractor.mediapipe_pipeline import LandmarkExtractor
 
@@ -106,12 +106,11 @@ def main() -> None:
 
             # ── M4 stub ───────────────────────────────────────────────────────
             if state_update.triggered:
-                raw_buf  = m3.take_buffer()
-                norm_buf = normalize_buffer(raw_buf)   # (64, 108) float32
+                norm_buf = m3.take_buffer()  # (64, 108) float32, already normalized
                 se = state_update.sign_event
                 last_trigger = {"id": se.sign_id, "buf": se.buffer_length, "dur": se.sign_duration_s}
-                log.info("→ M4 stub: sign #%d  raw=%d frames  norm=%s  (%.2fs)",
-                         se.sign_id, len(raw_buf), norm_buf.shape, se.sign_duration_s)
+                log.info("→ M4 stub: sign #%d  norm=%s  (%.2fs)",
+                         se.sign_id, norm_buf.shape, se.sign_duration_s)
                 # TODO: prediction = m4.infer(se, norm_buf)
 
             # ── M2 stub: overlay ──────────────────────────────────────────────
