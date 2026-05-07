@@ -41,7 +41,7 @@ _FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 # ── M4: Load model once before loop ──────────────────────────────────────────
 
-MODEL_PATH = "spoter_model_final.pt"
+MODEL_PATH = "spoter/spoter_model_final.pt"
 LABEL_PATH = "spoter/label_map.json"
 
 engine = SignLanguageEngine(MODEL_PATH, LABEL_PATH)
@@ -91,7 +91,7 @@ def main() -> None:
     log.info("-" * 60)
 
     m1 = LandmarkExtractor()
-    m3 = M3StateMachine(ta=5, tr=10, motion_threshold=0.02)
+    m3 = M3StateMachine(ta=5, tr=10, motion_threshold=0.01)
 
     last_trigger: dict = {}
     cycle_times: deque = deque(maxlen=30)

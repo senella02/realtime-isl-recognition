@@ -1,5 +1,5 @@
 timestamp,frame_idx,from_state,to_state,buffer_size,reason,error_label
-1778163924.9257,49,IDLE,ACTIVE,0,TA=5 consecutive active frames,
-1778163926.6408,66,ACTIVE,IDLE,6,TR=10 consecutive rest frames → inference fired,premature
-1778163937.9273,185,IDLE,ACTIVE,0,TA=5 consecutive active frames,
-1778163944.4646,251,ACTIVE,IDLE,29,TR=10 consecutive rest frames → inference fired,premature
+1778170283.6950,34,IDLE,ACTIVE,0,TA=5 consecutive active frames,
+1778170289.0680,88,ACTIVE,IDLE,36,TR=10 consecutive rest frames → inference fired,
+1778170300.0655,217,IDLE,ACTIVE,0,TA=5 consecutive active frames,
+1778170305.2566,272,ACTIVE,IDLE,39,TR=10 consecutive rest frames → inference fired,

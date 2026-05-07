@@ -4,10 +4,10 @@ import time
 import json
 
 try:
-    from normalization.body_normalization import normalize_single_dict as normalize_single_body_dict
-    from normalization.hand_normalization import normalize_single_dict as normalize_single_hand_dict
-    from normalization.body_normalization import BODY_IDENTIFIERS
-    from normalization.hand_normalization import HAND_IDENTIFIERS
+    from .normalization.body_normalization import normalize_single_dict as normalize_single_body_dict
+    from .normalization.hand_normalization import normalize_single_dict as normalize_single_hand_dict
+    from .normalization.body_normalization import BODY_IDENTIFIERS
+    from .normalization.hand_normalization import HAND_IDENTIFIERS
 except ImportError:
     print("⚠️ Warning: Could not import normalization modules. Check your folder structure.")
 
