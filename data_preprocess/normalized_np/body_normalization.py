@@ -30,7 +30,7 @@ _BODY_JOINTS_ORDER = [
 BODY_COL_IDX: dict[str, int] = {name: i * 2 for i, name in enumerate(_BODY_JOINTS_ORDER)}
 
 
-def _normalize_body_inplace(seq: np.ndarray) -> None:
+def normalize_body_inplace(seq: np.ndarray) -> None:
     """Apply Bohacek body normalization to one (num_frames, num_features) sequence in-place."""
     last_starting_point: list | None = None
     last_ending_point: list | None = None
@@ -108,7 +108,7 @@ def normalize_single_np(arr: np.ndarray) -> np.ndarray:
     :return: Copy of arr with body columns normalized.
     """
     out = arr.copy()
-    _normalize_body_inplace(out)
+    normalize_body_inplace(out)
     return out
 
 
@@ -122,7 +122,7 @@ def normalize_body_full_np(arr: np.ndarray) -> tuple[np.ndarray, list]:
     """
     out = arr.copy()
     for i in range(out.shape[0]):
-        _normalize_body_inplace(out[i])
+        normalize_body_inplace(out[i])
 
     print("The normalization of body is finished.")
     print(f"\t-> Original size: {arr.shape[0]}")
