@@ -41,9 +41,9 @@ class SignLanguageEngine:
         # Step 2: Create Dict (แบบรวดเร็ว)
         depth_map_dict = {identifier: data[:, idx] for idx, identifier in enumerate(self.all_ids)}
 
-        # Step 3: Normalize (Hand ก่อน Body)
-        depth_map_dict = normalize_single_hand_dict(depth_map_dict)
+        # Step 3: Normalize
         depth_map_dict = normalize_single_body_dict(depth_map_dict)
+        depth_map_dict = normalize_single_hand_dict(depth_map_dict)
 
         # Step 4: Reconstruct Array (ใช้ stack แทนการวนลูป append)
         output_list = [depth_map_dict[id] for id in self.all_ids]
