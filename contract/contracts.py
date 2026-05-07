@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional
 import numpy as np
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.2.0"
 
 
 class SignState(str, Enum):
@@ -17,9 +17,12 @@ class FramePacket:
     frame_id: int
     capture_ts: float
     image_bgr: np.ndarray
-    bbox: Optional[tuple]              # (x1, y1, x2, y2) in image coords; None if no body
-    landmarks_raw: Optional[dict]
-    landmarks_normalized: Optional[dict]
+    bbox: Optional[tuple]               # (x1, y1, x2, y2) in image coords; None if no body
+    landmarks_raw: Optional[np.ndarray] # shape (65, 2) float32 — upper body + both hands in [0,1]
+                                        # layout: [0:23]  23 upper-body pose landmarks (MediaPipe indices 0–22)
+                                        #         [23:44] 21 left hand landmarks  (HAND_JOINTS order)
+                                        #         [44:65] 21 right hand landmarks (HAND_JOINTS order)
+                                        # M3 owns normalization — call normalize_for_inference() on this
 
 
 @dataclass

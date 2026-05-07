@@ -35,3 +35,6 @@ build/
 # My file
 data_preprocess/output_csv/
 data_preprocess/*.zip
+
+# MediaPipe model files (large binaries, download separately)
+models/*.task

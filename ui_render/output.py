@@ -9,17 +9,28 @@ from ui_render.ui_overlay import OverlayRenderer
 from ui_render.runtime.fps_meter import FpsMeter
 
 
+_WINDOW_NAME = "ISL Recognition"
+
+
 class M2Output:
     """
     Exposes render() and log() — both must return in < 5 ms on average.
     Heavy offline work (Phase D/E) is never called from the live loop.
     """
 
-    def __init__(self, display: bool = True):
+    def __init__(self, display: bool = True, display_scale: float = 1.5):
+        """
+        display_scale: upscale factor applied before imshow (e.g. 1.5 → 960×720
+                       from a 640×480 source). Use 1.0 for no scaling.
+                       The window is always WINDOW_NORMAL so you can drag-resize it too.
+        """
         self._display = display
+        self._scale = display_scale
         self._renderer = OverlayRenderer()
         self._fps = FpsMeter(window=30)
         self._latest_prediction: Optional[Prediction] = None
+        if display:
+            cv2.namedWindow(_WINDOW_NAME, cv2.WINDOW_NORMAL)
 
     def render(
         self,
@@ -41,7 +52,16 @@ class M2Output:
         )
 
         if self._display:
-            cv2.imshow("ISL Recognition", annotated)
+            if self._scale != 1.0:
+                h, w = annotated.shape[:2]
+                display_frame = cv2.resize(
+                    annotated,
+                    (int(w * self._scale), int(h * self._scale)),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+            else:
+                display_frame = annotated
+            cv2.imshow(_WINDOW_NAME, display_frame)
             cv2.waitKey(1)
 
         return annotated
