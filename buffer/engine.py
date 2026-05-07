@@ -22,6 +22,20 @@ import numpy as np
 
 from contract.contracts import FramePacket, SignEvent, SignState, StateUpdate
 from .realtime_engine import RealtimeEngine, State, BUFFER_SIZE
+from data_preprocess.normalized_np.body_normalization import normalize_body_inplace
+from data_preprocess.normalized_np.hand_normalization import normalize_hands_inplace
+
+# ── Normalization constants ────────────────────────────────────────────────────
+# Body joint selection: MediaPipe indices used by normalized_np/main.py
+# (same order as BODY_JOINTS_INPUT_INDEX, neck excluded — it is computed)
+_BODY_MP_IDX   = [0, 5, 2, 8, 7, 12, 11, 14, 13, 16, 15]
+_BODY_FLAT_IDX = np.array(
+    [i for mp in _BODY_MP_IDX for i in (2 * mp, 2 * mp + 1)], dtype=np.intp
+)
+_LS_FLAT = np.array([24, 25], dtype=np.intp)  # leftShoulder  (MP index 12) flat cols
+_RS_FLAT = np.array([22, 23], dtype=np.intp)  # rightShoulder (MP index 11) flat cols
+
+NORM_FEATURES = 108   # 12 body × 2 + 21 left-hand × 2 + 21 right-hand × 2
 
 log = logging.getLogger("M3")
 
@@ -216,3 +230,53 @@ class M3StateMachine:
         if not np.any(hand_cur) or not np.any(hand_prv):
             return 0.0
         return float(np.mean(np.abs(hand_cur - hand_prv)))
+
+
+# ── Public normalization helper ────────────────────────────────────────────────
+
+def normalize_buffer(buffer: list, pad_to: int = BUFFER_SIZE) -> np.ndarray:
+    """
+    Convert a raw buffer (list of (65, 2) float32 arrays from LandmarkExtractor)
+    into a normalized (pad_to, 108) float32 array ready for model inference.
+
+    Steps
+    -----
+    1. Drop None entries (frames where landmarks were lost mid-sign).
+    2. Stack → (N, 65, 2), reshape → (N, 130).
+       Layout: [body×23 | left-hand×21 | right-hand×21] × (x, y).
+    3. Select 12 body joints and compute neck midpoint → (N, 108).
+       Column order: [body×12 | left-hand×21 | right-hand×21] × (x, y).
+    4. Apply Bohacek body + hand normalization in-place (same as training).
+    5. Pad with zeros to pad_to frames (or truncate if longer).
+
+    Returns (pad_to, 108) float32.
+    """
+    valid = [f for f in buffer if f is not None]
+    if not valid:
+        return np.zeros((pad_to, NORM_FEATURES), dtype=np.float32)
+
+    # (N, 65, 2) → (N, 130)
+    raw = np.stack(valid, axis=0).reshape(len(valid), 130).astype(np.float32)
+
+    # Select 12 body joints + compute neck → (N, 108)
+    body_cols = raw[:, _BODY_FLAT_IDX]                       # (N, 22): 11 joints × xy
+    neck      = (raw[:, _LS_FLAT] + raw[:, _RS_FLAT]) * 0.5  # (N, 2)
+    hands     = raw[:, 46:130]                               # (N, 84): both hands
+
+    out = np.empty((len(valid), NORM_FEATURES), dtype=np.float32)
+    out[:, 0:2]    = body_cols[:, 0:2]   # nose
+    out[:, 2:4]    = neck                # neck (midpoint of shoulders)
+    out[:, 4:24]   = body_cols[:, 2:]   # leftEye … rightWrist
+    out[:, 24:108] = hands
+
+    # Bohacek normalization — identical to training preprocessing
+    normalize_body_inplace(out)
+    normalize_hands_inplace(out)
+
+    # Pad / truncate to pad_to frames
+    n = len(valid)
+    if n >= pad_to:
+        return out[:pad_to]
+    padded = np.zeros((pad_to, NORM_FEATURES), dtype=np.float32)
+    padded[:n] = out
+    return padded
