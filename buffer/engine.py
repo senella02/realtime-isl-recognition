@@ -8,7 +8,7 @@ Contract (v1.2.0):
       [44:65] 21 right hand landmarks
 
 M3 responsibilities:
-  - Compute per-frame H/A classification from hand-landmark motion.
+  - Compute per-frame H/A classification from hand-landmark presence.
   - Drive the A/H state machine and 64-frame sliding buffer.
   - Each buffer entry is the raw (65, 2) array; take_buffer() normalizes
     the full sequence via normalized_batch before returning to the caller.
@@ -31,9 +31,9 @@ log = logging.getLogger("M3")
 # Hand rows in the (65, 2) landmarks_raw array
 _HAND_ROWS = slice(23, 65)
 
-# Mean absolute displacement threshold for H/A classification.
-# Increase to require bigger hand movement; decrease to catch slow signs.
-DEFAULT_MOTION_THRESHOLD = 0.02
+# Fraction of hand-landmark rows that must be non-zero to classify a frame Active.
+# 0.1 means at least ~4 of the 42 hand-landmark rows must have a detected position.
+DEFAULT_PRESENCE_THRESHOLD = 0.1
 
 
 class M3StateMachine:
@@ -46,18 +46,19 @@ class M3StateMachine:
         Consecutive active frames required to enter Active state (default 5).
     tr : int
         Consecutive rest frames required to fire inference (default 10).
-    motion_threshold : float
-        Hand-motion score cutoff for H/A classification (default 0.02).
+    presence_threshold : float
+        Fraction of hand-landmark rows that must be non-zero to classify a frame
+        Active (default 0.1 ≈ ~4 of 42 rows).
     """
 
     def __init__(
         self,
         ta: int = 5,
         tr: int = 10,
-        motion_threshold: float = DEFAULT_MOTION_THRESHOLD,
+        presence_threshold: float = DEFAULT_PRESENCE_THRESHOLD,
     ) -> None:
         self._engine = RealtimeEngine(ta=ta, tr=tr, inference_callback=self._on_trigger)
-        self._motion_threshold = motion_threshold
+        self._presence_threshold = presence_threshold
 
         # Sign-level tracking
         self._sign_id_counter: int = 0
@@ -70,8 +71,6 @@ class M3StateMachine:
         self._triggered: bool = False
         self._triggered_buffer: Optional[list] = None
 
-        # Previous-frame landmarks for motion score
-        self._prev_raw: Optional[np.ndarray] = None
 
     # ── Public API (pipeline loop) ─────────────────────────────────────────
 
@@ -212,29 +211,22 @@ class M3StateMachine:
 
     def _classify(self, raw: Optional[np.ndarray]) -> tuple[float, bool]:
         """
-        Compute hand-motion score and H/A label from landmarks_raw.
+        Compute hand-presence score and H/A label from landmarks_raw.
         Returns (score, is_active).
         """
         if raw is None:
-            self._prev_raw = None
             return 0.0, False
 
-        score = self._hand_motion_score(raw)
-        self._prev_raw = raw
-        return score, score > self._motion_threshold
+        score = self._hand_presence_score(raw)
+        return score, score > self._presence_threshold
 
-    def _hand_motion_score(self, current: np.ndarray) -> float:
+    def _hand_presence_score(self, current: np.ndarray) -> float:
         """
-        Mean absolute displacement of hand-landmark rows [23:65] vs previous frame.
-        Returns 0.0 on the first frame or if both hands are all zeros.
+        Fraction of hand-landmark rows [23:65] with at least one non-zero coordinate.
+        Returns a value in [0.0, 1.0]; 0.0 means no hand detected.
         """
-        if self._prev_raw is None:
-            return 0.0
-        hand_cur = current[_HAND_ROWS]
-        hand_prv = self._prev_raw[_HAND_ROWS]
-        # Skip frames where hands are entirely absent
-        if not np.any(hand_cur) or not np.any(hand_prv):
-            return 0.0
-        return float(np.mean(np.abs(hand_cur - hand_prv)))
+        hand = current[_HAND_ROWS]
+        detected_rows = np.any(hand != 0, axis=1)
+        return float(np.mean(detected_rows))
 
 

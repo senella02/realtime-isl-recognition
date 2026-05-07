@@ -91,7 +91,8 @@ def main() -> None:
     log.info("-" * 60)
 
     m1 = LandmarkExtractor()
-    m3 = M3StateMachine(ta=5, tr=10, motion_threshold=0.01)
+    # m3 = M3StateMachine(ta=5, tr=10, motion_threshold=0.01)
+    m3 = M3StateMachine(ta=5, tr=10)
 
     last_trigger: dict = {}
     cycle_times: deque = deque(maxlen=30)
