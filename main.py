@@ -50,7 +50,8 @@ last_results = None
 
 # ── M2 stub: overlay ──────────────────────────────────────────────────────────
 
-def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict, fps: float) -> None:
+def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict, fps: float,
+                  landmark_count: int = 0) -> None:
     h, w = frame.shape[:2]
 
     if state_update.state == SignState.ACTIVE:
@@ -60,6 +61,9 @@ def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict, fps: floa
         color = (160, 160, 160)
         label = "IDLE"
     cv2.putText(frame, label, (10, 36), _FONT, 1.0, color, 2, cv2.LINE_AA)
+
+    cv2.putText(frame, f"landmarks: {landmark_count}/65",
+                (10, 62), _FONT, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
 
     if last_trigger:
         txt = (f"last: sign #{last_trigger['id']}  "
@@ -72,14 +76,19 @@ def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict, fps: floa
     cv2.putText(frame, fps_txt, (w - tw - 8, 20), _FONT, 0.45, (100, 100, 100), 1, cv2.LINE_AA)
 
 
-def _draw_hand_dots(frame: np.ndarray, raw: np.ndarray) -> None:
-    """Draw left-hand (blue) and right-hand (red) landmark dots."""
+def _draw_landmarks(frame: np.ndarray, raw: np.ndarray) -> None:
+    """Draw body (white), left-hand (blue), right-hand (red) landmark dots."""
     h, w = frame.shape[:2]
-    for pts, color in [(raw[23:44], (220, 100, 0)), (raw[44:65], (0, 80, 220))]:
+    regions = [
+        (raw[0:23],  (255, 255, 255), 4),  # body — white, larger
+        (raw[23:44], (220, 100,   0), 3),  # left hand — blue
+        (raw[44:65], (  0,  80, 220), 3),  # right hand — red
+    ]
+    for pts, color, r in regions:
         for x, y in pts:
             if x == 0.0 and y == 0.0:
                 continue
-            cv2.circle(frame, (int(x * w), int(y * h)), 3, color, -1)
+            cv2.circle(frame, (int(x * w), int(y * h)), r, color, -1)
 
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -147,9 +156,11 @@ def main() -> None:
             fps = (len(cycle_times) - 1) / sum(cycle_times) if len(cycle_times) > 1 else 0.0
 
             display = packet.image_bgr.copy()
+            lm_count = 0
             if packet.landmarks_raw is not None:
-                _draw_hand_dots(display, packet.landmarks_raw)
-            _draw_overlay(display, state_update, last_trigger, fps)
+                lm_count = int(np.any(packet.landmarks_raw != 0, axis=1).sum())
+                _draw_landmarks(display, packet.landmarks_raw)
+            _draw_overlay(display, state_update, last_trigger, fps, lm_count)
 
             cv2.imshow("ISL Recognition — M3 debug", display)
             if cv2.waitKey(1) & 0xFF == ord("q"):
