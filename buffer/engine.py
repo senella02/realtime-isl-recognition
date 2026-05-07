@@ -1,30 +1,35 @@
 """
-M3/engine.py — contracts-compatible wrapper around RealtimeEngine.
+buffer/engine.py — contracts-compatible wrapper around RealtimeEngine.
 
-Adapts the raw A/H state machine to the shared dataclasses in contract/contracts.py
-so the main pipeline loop can call:
+Contract (v1.2.0):
+  FramePacket.landmarks_raw  Optional[np.ndarray]  shape (65, 2) float32
+      [0:23]  23 upper-body pose landmarks (MediaPipe indices 0–22)
+      [23:44] 21 left hand landmarks
+      [44:65] 21 right hand landmarks
 
-    state_update = m3.update(packet)          # every frame
-    if state_update.triggered:
-        buf = m3.take_buffer()
-        prediction = m4.infer(state_update.sign_event, buf)
-
-Design notes:
-- H/A classification is computed internally from hand-landmark motion because
-  FramePacket does not carry an is_active field. When M1 is extended to provide
-  this signal directly, replace _compute_is_active() with that value.
-- The buffer contains landmarks_normalized dicts — exactly what M4 expects.
-- All error-instrumentation methods (save_trigger_log, error_summary, etc.) are
-  forwarded to the underlying RealtimeEngine unchanged.
+M3 responsibilities:
+  - Compute per-frame H/A classification from hand-landmark motion.
+  - Drive the A/H state machine and 64-frame sliding buffer.
+  - Each buffer entry is the raw (65, 2) array — M4 applies full
+    normalization at inference time on the complete sequence.
+  - Expose StateUpdate every frame; sign_event + triggered on Active→Idle.
 """
 
+import logging
 from typing import Optional
 
-from contract.contracts import FramePacket, SignEvent, SignState, StateUpdate
-from .realtime_engine import RealtimeEngine, State
+import numpy as np
 
-# Mean absolute displacement threshold for H/A classification (normalized coords).
-# Calibrate with real clips; sweep via error_summary() after a session.
+from contract.contracts import FramePacket, SignEvent, SignState, StateUpdate
+from .realtime_engine import RealtimeEngine, State, BUFFER_SIZE
+
+log = logging.getLogger("M3")
+
+# Hand rows in the (65, 2) landmarks_raw array
+_HAND_ROWS = slice(23, 65)
+
+# Mean absolute displacement threshold for H/A classification.
+# Increase to require bigger hand movement; decrease to catch slow signs.
 DEFAULT_MOTION_THRESHOLD = 0.02
 
 
@@ -40,7 +45,6 @@ class M3StateMachine:
         Consecutive rest frames required to fire inference (default 10).
     motion_threshold : float
         Hand-motion score cutoff for H/A classification (default 0.02).
-        Tune upward to ignore fidgeting; tune downward to catch slow signs.
     """
 
     def __init__(
@@ -64,21 +68,37 @@ class M3StateMachine:
         self._triggered_buffer: Optional[list] = None
 
         # Previous-frame landmarks for motion score
-        self._prev_landmarks: Optional[dict] = None
+        self._prev_raw: Optional[np.ndarray] = None
 
     # ── Public API (pipeline loop) ─────────────────────────────────────────
 
-    def update(self, packet: FramePacket) -> StateUpdate:
+    def update(
+        self,
+        packet: FramePacket,
+        is_active_override: Optional[bool] = None,
+    ) -> StateUpdate:
         """
         Process one frame. Returns a StateUpdate for M2.
         When StateUpdate.triggered is True, call take_buffer() immediately.
+
+        is_active_override: when provided, skips landmark-based classification
+        and uses this value directly. Use this when M1 supplies its own H/A
+        signal or when running without landmarks (motion-only stub).
         """
         self._triggered = False
 
-        is_active = self._compute_is_active(packet)
+        # H/A classification
+        if is_active_override is not None:
+            score, is_active = 0.0, is_active_override
+        else:
+            score, is_active = self._classify(packet.landmarks_raw)
+
+        log.debug("frame=%d  score=%.4f  is_active=%s  consec_active=%d  consec_rest=%d",
+                  packet.frame_id, score, is_active,
+                  self._engine._consecutive_active, self._engine._consecutive_rest)
 
         prev_engine_state = self._engine.state
-        self._engine.feed_frame(packet.landmarks_normalized, is_active)
+        self._engine.feed_frame(packet.landmarks_raw, is_active)
         curr_engine_state = self._engine.state
 
         # Detect IDLE → ACTIVE onset
@@ -87,13 +107,18 @@ class M3StateMachine:
             self._current_sign_id = self._sign_id_counter
             self._sign_start_ts = packet.capture_ts
             self._frames_since_onset = 0
+            log.info("▶ SIGN #%d STARTED  (frame=%d, TA=%d met)",
+                     self._current_sign_id, packet.frame_id, self._engine.ta)
 
         if curr_engine_state == State.ACTIVE:
             self._frames_since_onset += 1
             if is_active:
                 self._last_active_ts = packet.capture_ts
+            buf_len = len(self._engine.buffer)
+            if buf_len > 0 and buf_len % 10 == 0 and is_active:
+                log.info("  buffer filling… %d/%d frames", buf_len, BUFFER_SIZE)
 
-        # Capture sign_id before the trigger resets it
+        # Capture sign_id before the trigger may reset it
         sign_id_for_update = self._current_sign_id
 
         sign_event: Optional[SignEvent] = None
@@ -107,7 +132,8 @@ class M3StateMachine:
                 sign_duration_s=max(0.0, end_ts - start_ts),
                 buffer_length=len(self._triggered_buffer or []),
             )
-            # Reset sign tracking after trigger; next sign gets a fresh id
+            log.info("■ SIGN #%d COMPLETE  duration=%.2fs  buffer=%d frames",
+                     sign_event.sign_id, sign_event.sign_duration_s, sign_event.buffer_length)
             self._current_sign_id = None
             self._sign_start_ts = None
             self._last_active_ts = None
@@ -124,7 +150,7 @@ class M3StateMachine:
 
     def take_buffer(self) -> list:
         """
-        Consume the 64-frame buffer snapshot from the last trigger.
+        Consume the buffer snapshot from the last trigger (list of np.ndarray).
         Must be called in the same loop iteration that saw triggered=True.
         Returns an empty list if called out of order.
         """
@@ -132,26 +158,21 @@ class M3StateMachine:
         self._triggered_buffer = None
         return buf
 
-    # ── Error instrumentation (delegate to RealtimeEngine) ────────────────
+    # ── Error instrumentation ────────────────────────────────────────────
 
     def save_trigger_log(self, path: str = "trigger_error_log.csv") -> None:
-        """Write per-segment state-transition log to CSV (M3 deliverable)."""
         self._engine.save_trigger_log(path)
 
     def error_summary(self) -> dict:
-        """Return all 4 error counts + rates. Use for boundary_error_summary.md."""
         return self._engine.error_summary()
 
     def set_total_signs(self, n: int) -> None:
-        """Supply ground-truth sign count for missed/over-seg rate computation."""
         self._engine.set_total_signs(n)
 
     def mark_false_start(self) -> None:
-        """Mark the most recent trigger as a false start. Called by M2 evaluator."""
         self._engine.mark_false_start()
 
     def mark_missed_sign(self, frame_start: int, frame_end: int) -> None:
-        """Log a sign that was performed but never triggered inference."""
         self._engine.mark_missed_sign(frame_start, frame_end)
 
     @property
@@ -165,50 +186,33 @@ class M3StateMachine:
     # ── Internals ─────────────────────────────────────────────────────────
 
     def _on_trigger(self, buffer: list) -> None:
-        """Callback wired into RealtimeEngine. Fires on Active→Idle transition."""
         self._triggered = True
         self._triggered_buffer = list(buffer)
+        log.info("■ TRIGGER FIRED  buffer_length=%d", len(buffer))
 
-    def _compute_is_active(self, packet: FramePacket) -> bool:
+    def _classify(self, raw: Optional[np.ndarray]) -> tuple[float, bool]:
         """
-        Classify this frame as Active (signing) or Idle (resting) based on
-        the mean absolute displacement of normalized hand landmarks vs the
-        previous frame.
-
-        When M1 is extended to expose an explicit is_active signal in FramePacket,
-        replace this method body with: return packet.is_active
+        Compute hand-motion score and H/A label from landmarks_raw.
+        Returns (score, is_active).
         """
-        if packet.landmarks_normalized is None:
-            self._prev_landmarks = None
-            return False
+        if raw is None:
+            self._prev_raw = None
+            return 0.0, False
 
-        score = self._hand_motion_score(packet.landmarks_normalized)
-        self._prev_landmarks = packet.landmarks_normalized
-        return score > self._motion_threshold
+        score = self._hand_motion_score(raw)
+        self._prev_raw = raw
+        return score, score > self._motion_threshold
 
-    def _hand_motion_score(self, current: dict) -> float:
+    def _hand_motion_score(self, current: np.ndarray) -> float:
         """
-        Mean absolute displacement of hand landmarks between this frame and the
-        previous frame. Hand landmarks are identified by their '_0' (left) or
-        '_1' (right) key suffix in the normalized dict.
-
-        Returns 0.0 on the first frame or when no hand landmarks are found.
+        Mean absolute displacement of hand-landmark rows [23:65] vs previous frame.
+        Returns 0.0 on the first frame or if both hands are all zeros.
         """
-        if self._prev_landmarks is None:
+        if self._prev_raw is None:
             return 0.0
-
-        total = 0.0
-        n = 0
-        for key, val in current.items():
-            if not (key.endswith("_0") or key.endswith("_1")):
-                continue
-            prev_val = self._prev_landmarks.get(key)
-            if prev_val is None or not isinstance(val, (list, tuple)):
-                continue
-            for c, p in zip(val, prev_val):
-                try:
-                    total += abs(float(c) - float(p))
-                    n += 1
-                except (TypeError, ValueError):
-                    continue
-        return total / n if n > 0 else 0.0
+        hand_cur = current[_HAND_ROWS]
+        hand_prv = self._prev_raw[_HAND_ROWS]
+        # Skip frames where hands are entirely absent
+        if not np.any(hand_cur) or not np.any(hand_prv):
+            return 0.0
+        return float(np.mean(np.abs(hand_cur - hand_prv)))
