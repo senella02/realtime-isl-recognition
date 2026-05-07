@@ -88,3 +88,20 @@ HAND_JOINTS = [
 
 - คำนวณผล prediction ส่งให้ M2
 - คำนวณ RTF ส่งให้ M2
+
+# Run
+
+```
+pip install -r requirements.txt
+```
+
+```
+curl -L -o models/holistic_landmarker.task \
+  "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task"
+```
+
+## Or on Windows PowerShell:
+
+```
+Invoke-WebRequest -Uri "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task" -OutFile "models\holistic_landmarker.task"
+```
