@@ -2,36 +2,45 @@
 normalized_np/main.py
 ---------------------
 
-Input: Flat npy layout (frames, 150):
-  [0:66]    33 body landmarks  (x,y pairs, MediaPipe ordering)
-  [66:108]  21 left hand joints (x,y pairs, MediaPipe ordering)
-  [108:150] 21 right hand joints (x,y pairs, MediaPipe ordering)
+Input: Flat npy layout (frames, 130):
+  [0:46]    23 body landmarks  (x,y pairs, MediaPipe ordering)
+  [46:88]   21 left hand joints (x,y pairs, MediaPipe ordering)
+  [88:130]  21 right hand joints (x,y pairs, MediaPipe ordering)
 
 After reshape to (frames, 108):
-  joints 0-23   → body (select 12)
-  joints 33-53  → left hand (select 21)
-  joints 54-74  → right hand (select 21)
+  cols  0-23  → 12 selected body joints (x,y)
+  cols 24-65  → left hand (all 21 joints, x,y)
+  cols 66-107 → right hand (all 21 joints, x,y)
 """
 
 import numpy as np
 from body_normalization import normalize_body_inplace
 from hand_normalization import normalize_hands_inplace
 
+# New 23-joint MediaPipe body layout:
+#   0:nose  1:rightEyeInner  2:rightEye   3:rightEyeOuter
+#   4:leftEyeInner  5:leftEye  6:leftEyeOuter
+#   7:rightEar  8:leftEar  9:mouthRight  10:mouthLeft
+#   11:rightShoulder  12:leftShoulder
+#   13:rightElbow  14:leftElbow  15:rightWrist  16:leftWrist
+#   17:rightPinky  18:leftPinky  19:rightIndex  20:leftIndex
+#   21:rightThumb  22:leftThumb
+
 # (name, mediapipe_body_index) — None means computed
 # output features should be in this order: [nose_x, nose_y, neck_x, neck_y, ...]
 BODY_JOINTS_INPUT_INDEX = [
     ("nose",          0),
-    ("neck",          None),   # midpoint of leftShoulder(11) + rightShoulder(12)
-    ("leftEye",       2),
-    ("rightEye",      5),
-    ("leftEar",       7),
-    ("rightEar",      8),
-    ("leftShoulder",  11),
-    ("rightShoulder", 12),
-    ("leftElbow",     13),
-    ("rightElbow",    14),
-    ("leftWrist",     15),
-    ("rightWrist",    16),
+    ("neck",          None),   # midpoint of leftShoulder(12) + rightShoulder(11)
+    ("leftEye",       5),
+    ("rightEye",      2),
+    ("leftEar",       8),
+    ("rightEar",      7),
+    ("leftShoulder",  12),
+    ("rightShoulder", 11),
+    ("leftElbow",     14),
+    ("rightElbow",    13),
+    ("leftWrist",     16),
+    ("rightWrist",    15),
 ]
 
 # Reuse for both hands
@@ -72,16 +81,16 @@ _BODY_IDX = np.array(
     [i for mp in _BODY_MP_INDICES for i in (2 * mp, 2 * mp + 1)], dtype=np.intp
 )
 
-# leftShoulder (MP 11) and rightShoulder (MP 12) flat indices — for neck midpoint
-_LS_IDX = np.array([22, 23], dtype=np.intp)
-_RS_IDX = np.array([24, 25], dtype=np.intp)
+# leftShoulder (MP 12) and rightShoulder (MP 11) flat indices — for neck midpoint
+_LS_IDX = np.array([24, 25], dtype=np.intp)
+_RS_IDX = np.array([22, 23], dtype=np.intp)
 
 
 def select_features(frames: np.ndarray) -> np.ndarray:
     """
-    Select 54 joints (108 values) from a batch of flat (N, 150) MediaPipe frames.
+    Select 54 joints (108 values) from a batch of flat (N, 130) MediaPipe frames.
 
-    Input layout  (N, 150): [body x,y = 33 | left-hand x,y = 21 | right-hand x,y = 21]
+    Input layout  (N, 130): [body x,y = 23 | left-hand x,y = 21 | right-hand x,y = 21]
     Output layout (N, 108): [body x,y = 12 | left-hand x,y = 21 | right-hand x,y = 21]
 
     Body output order: nose, neck*, leftEye, rightEye, leftEar, rightEar,
@@ -95,14 +104,14 @@ def select_features(frames: np.ndarray) -> np.ndarray:
     # neck = midpoint of leftShoulder and rightShoulder → (N, 2)
     neck = (frames[:, _LS_IDX] + frames[:, _RS_IDX]) * 0.5
 
-    # hands: left [66:108] + right [108:150] → (N, 84) values (all joints, unchanged)
-    hands = frames[:, 66:150]
+    # hands: left [46:88] + right [88:130] → (N, 84) values (all joints, unchanged)
+    hands = frames[:, 46:130]
 
     # assemble: [nose(2) | neck(2) | leftEye…rightWrist(20) | hands(84)]
     out = np.empty((frames.shape[0], 108), dtype=frames.dtype)
-    out[:, 0:2]   = body[:, 0:2]   # nose
-    out[:, 2:4]   = neck            # neck (computed)
-    out[:, 4:24]  = body[:, 2:]    # leftEye … rightWrist
+    out[:, 0:2]    = body[:, 0:2]   # nose
+    out[:, 2:4]    = neck            # neck (computed)
+    out[:, 4:24]   = body[:, 2:]    # leftEye … rightWrist
     out[:, 24:108] = hands
     return out
 
@@ -111,7 +120,7 @@ def normalized_batch(frames: np.ndarray) -> np.ndarray:
     """
     Select 54 joints and normalize body landmarks for a batch of frames.
 
-    :param frames: (N, 150) raw MediaPipe flat array
+    :param frames: (N, 130) raw MediaPipe flat array
     :return: (N, 108) selected + body-normalized array
     """
     out = select_features(frames)   # already a fresh allocation — no copy needed
