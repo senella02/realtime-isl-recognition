@@ -18,6 +18,7 @@ from collections import deque
 import cv2
 import numpy as np
 
+from spoter.realtime_engine import SignLanguageEngine
 from buffer import M3StateMachine
 from contract.contracts import SignState
 from extractor.mediapipe_pipeline import LandmarkExtractor
@@ -38,6 +39,13 @@ _FRAME_BUDGET = 1.0 / TARGET_FPS  # 33.3 ms
 
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
 
+# ── M4: Load model once before loop ──────────────────────────────────────────
+
+MODEL_PATH = "spoter_model_final.pt"
+LABEL_PATH = "spoter/label_map.json"
+
+engine = SignLanguageEngine(MODEL_PATH, LABEL_PATH)
+last_results = None
 
 # ── M2 stub: overlay ──────────────────────────────────────────────────────────
 
@@ -111,8 +119,13 @@ def main() -> None:
                 last_trigger = {"id": se.sign_id, "buf": se.buffer_length, "dur": se.sign_duration_s}
                 log.info("→ M4 stub: sign #%d  norm=%s  (%.2fs)",
                          se.sign_id, norm_buf.shape, se.sign_duration_s)
-                # TODO: prediction = m4.infer(se, norm_buf)
-
+                # prediction 
+                if norm_buf is not None:
+                    last_results = engine.run_inference(norm_buf, t_frame_start)
+                    
+                    if last_results:
+                        print(f"Predicted: {last_results['label']} ({last_results['confidence']}\nPredict time: {last_results['predict_time_ms']} ms\nTotal process time: {last_results['total_process_time_ms']}")
+    
             # ── M2 stub: overlay ──────────────────────────────────────────────
             cycle_times.append(time.perf_counter() - t_frame_start)
             fps = (len(cycle_times) - 1) / sum(cycle_times) if len(cycle_times) > 1 else 0.0
