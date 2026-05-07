@@ -38,7 +38,6 @@ def _mock_packet(frame_id: int, ts: float, active: bool) -> FramePacket:
         image_bgr=frame,
         bbox=bbox,
         landmarks_raw=None,
-        landmarks_normalized=None,
     )
 
 
