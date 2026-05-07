@@ -13,6 +13,7 @@ Quit: press Q or close the window
 
 import logging
 import time
+from collections import deque
 
 import cv2
 import numpy as np
@@ -32,12 +33,15 @@ log = logging.getLogger("main")
 # Uncomment to also see per-frame motion scores (very verbose):
 # logging.getLogger("M3").setLevel(logging.DEBUG)
 
+TARGET_FPS = 30
+_FRAME_BUDGET = 1.0 / TARGET_FPS  # 33.3 ms
+
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
 # ── M2 stub: overlay ──────────────────────────────────────────────────────────
 
-def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict) -> None:
+def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict, fps: float) -> None:
     h, w = frame.shape[:2]
 
     if state_update.state == SignState.ACTIVE:
@@ -54,9 +58,9 @@ def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict) -> None:
                f"{last_trigger['dur']:.2f}s")
         cv2.putText(frame, txt, (10, h - 14), _FONT, 0.5, (0, 200, 255), 1, cv2.LINE_AA)
 
-    hint = "Q=quit"
-    (tw, _), _ = cv2.getTextSize(hint, _FONT, 0.45, 1)
-    cv2.putText(frame, hint, (w - tw - 8, 20), _FONT, 0.45, (100, 100, 100), 1, cv2.LINE_AA)
+    fps_txt = f"FPS: {fps:.1f}/{TARGET_FPS}"
+    (tw, _), _ = cv2.getTextSize(fps_txt, _FONT, 0.45, 1)
+    cv2.putText(frame, fps_txt, (w - tw - 8, 20), _FONT, 0.45, (100, 100, 100), 1, cv2.LINE_AA)
 
 
 def _draw_hand_dots(frame: np.ndarray, raw: np.ndarray) -> None:
@@ -82,9 +86,12 @@ def main() -> None:
     m3 = M3StateMachine(ta=5, tr=10, motion_threshold=0.02)
 
     last_trigger: dict = {}
+    cycle_times: deque = deque(maxlen=30)
 
     try:
         while True:
+            t_frame_start = time.perf_counter()
+
             # ── M1: capture + extract landmarks ──────────────────────────────
             raw_frame, capture_ts = m1.grab()
             if raw_frame is None:
@@ -108,16 +115,23 @@ def main() -> None:
                 # TODO: prediction = m4.infer(se, norm_buf)
 
             # ── M2 stub: overlay ──────────────────────────────────────────────
+            cycle_times.append(time.perf_counter() - t_frame_start)
+            fps = (len(cycle_times) - 1) / sum(cycle_times) if len(cycle_times) > 1 else 0.0
+
             display = packet.image_bgr.copy()
             if packet.landmarks_raw is not None:
                 _draw_hand_dots(display, packet.landmarks_raw)
-            _draw_overlay(display, state_update, last_trigger)
+            _draw_overlay(display, state_update, last_trigger, fps)
 
             cv2.imshow("ISL Recognition — M3 debug", display)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
             if cv2.getWindowProperty("ISL Recognition — M3 debug", cv2.WND_PROP_VISIBLE) < 1:
                 break
+
+            # ── FPS pacing ────────────────────────────────────────────────────
+            elapsed = time.perf_counter() - t_frame_start
+            time.sleep(max(0.0, _FRAME_BUDGET - elapsed))
 
     finally:
         m1.release()
