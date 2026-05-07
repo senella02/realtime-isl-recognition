@@ -1,190 +1,113 @@
+"""
+normalized_np/hand_normalization.py
+------------------------------------
 
-import logging
-import pandas as pd
+Numpy-array implementation of Bohacek hand normalization.
 
-HAND_IDENTIFIERS = [
-    "wrist",
-    "indexTip",
-    "indexDIP",
-    "indexPIP",
-    "indexMCP",
-    "middleTip",
-    "middleDIP",
-    "middlePIP",
-    "middleMCP",
-    "ringTip",
-    "ringDIP",
-    "ringPIP",
-    "ringMCP",
-    "littleTip",
-    "littleDIP",
-    "littlePIP",
-    "littleMCP",
-    "thumbTip",
-    "thumbIP",
-    "thumbMP",
-    "thumbCMC"
-]
+Algorithm is identical to normalize_single_dict() in
+normalized_csv/hand_normalization.py.  Only the data-access layer changes:
+instead of a dict-of-lists the input is a (num_frames, num_features) ndarray.
+
+Expected column layout (produced by select_features() in main.py):
+    cols  0:24  — 12 body joints  × (x, y)
+    cols 24:66  — 21 left-hand joints × (x, y)  in MediaPipe order
+    cols 66:108 — 21 right-hand joints × (x, y) in MediaPipe order
+"""
+
+import numpy as np
+
+_N_HAND_JOINTS = 21
+_HAND_STRIDE   = _N_HAND_JOINTS * 2  # 42 values per hand
+
+LEFT_HAND_START  = 24
+RIGHT_HAND_START = 66
 
 
-def normalize_hands_full(df: pd.DataFrame) -> pd.DataFrame:
+def normalize_hand_inplace(seq: np.ndarray, hand_start: int) -> None:
     """
-    Normalizes the hands position data using the Bohacek-normalization algorithm.
+    Apply Bohacek hand normalization to one hand's columns in-place.
 
-    :param df: pd.DataFrame to be normalized
-    :return: pd.DataFrame with normalized values for hand pose
+    :param seq: (num_frames, num_features) array
+    :param hand_start: flat column index where this hand's 42 values begin
     """
+    x_cols = np.arange(hand_start, hand_start + _HAND_STRIDE, 2, dtype=np.intp)
+    y_cols = x_cols + 1
 
-    # TODO: Fix division by zero
-    df.columns = [item.replace("_left_", "_0_").replace("_right_", "_1_") for item in list(df.columns)]
+    for f in range(seq.shape[0]):
+        xs = seq[f, x_cols]
+        ys = seq[f, y_cols]
 
-    normalized_df = pd.DataFrame(columns=df.columns)
+        # Bounding box uses separate non-zero masks for x and y,
+        # matching normalize_single_dict exactly.
+        mask_x = xs != 0
+        mask_y = ys != 0
 
-    # Dictionary to access landmark name e.g. list[X][0] = [wrist_0_X, thumb_0_X, ...]
-    hand_landmarks = {"X": {0: [], 1: []}, "Y": {0: [], 1: []}}
+        if not np.any(mask_x) or not np.any(mask_y):
+            continue
 
-    # Determine how many hands are present in the dataset
-    range_hand_size = 1
-    if "wrist_1_X" in df.columns:
-        range_hand_size = 2
+        min_x, max_x = float(xs[mask_x].min()), float(xs[mask_x].max())
+        min_y, max_y = float(ys[mask_y].min()), float(ys[mask_y].max())
 
-    # Construct the relevant identifiers e.g. wrist_0_X and append to hand_landmark list
-    for identifier in HAND_IDENTIFIERS:
-        for hand_index in range(range_hand_size):
-            hand_landmarks["X"][hand_index].append(identifier + "_" + str(hand_index) + "_X")
-            hand_landmarks["Y"][hand_index].append(identifier + "_" + str(hand_index) + "_Y")
+        width  = max_x - min_x
+        height = max_y - min_y
 
-    # Iterate over all of the records in the dataset
-    for index, row in df.iterrows():
-        # Treat each hand individually
-        for hand_index in range(range_hand_size):
+        if width > height:
+            delta_x = 0.1 * width
+            delta_y = delta_x + (width - height) * 0.5
+        else:
+            delta_y = 0.1 * height
+            delta_x = delta_y + (height - width) * 0.5
 
-            sequence_size = len(row["wrist_" + str(hand_index) + "_X"])
+        start_x = min_x - delta_x
+        start_y = min_y - delta_y
+        end_x   = max_x + delta_x
+        end_y   = max_y + delta_y
 
-            # Treat each element of the sequence (analyzed frame) individually
-            for sequence_index in range(sequence_size):
+        span_x = end_x - start_x
+        span_y = end_y - start_y
 
-                # Retrieve all of the X and Y values of the current frame
-                landmarks_x_values = [row[key][sequence_index] for key in hand_landmarks["X"][hand_index] if row[key][sequence_index] != 0]
-                landmarks_y_values = [row[key][sequence_index] for key in hand_landmarks["Y"][hand_index] if row[key][sequence_index] != 0]
+        if span_x == 0 or span_y == 0:
+            continue
 
-                # Prevent from even starting the analysis if some necessary elements are not present
-                if not landmarks_x_values or not landmarks_y_values:
-                    logging.warning(
-                        " HAND LANDMARKS: One frame could not be normalized as there is no data present. Record: " + str(index) +
-                        ", Frame: " + str(sequence_index))
-                    
-                    continue
-
-                # Calculate the deltas
-                width, height = max(landmarks_x_values) - min(landmarks_x_values), max(landmarks_y_values) - min(
-                    landmarks_y_values)
-                if width > height:
-                    delta_x = 0.1 * width
-                    delta_y = delta_x + ((width - height) / 2)
-                else:
-                    delta_y = 0.1 * height
-                    delta_x = delta_y + ((height - width) / 2)
-
-                # Set the starting and ending point of the normalization bounding box
-                starting_point = (min(landmarks_x_values) - delta_x, min(landmarks_y_values) - delta_y)
-                ending_point = (max(landmarks_x_values) + delta_x, max(landmarks_y_values) + delta_y)
-
-                # Normalize individual landmarks and save the results
-                for identifier in HAND_IDENTIFIERS:
-                    key = identifier + "_" + str(hand_index) + "_"
-
-                    # Prevent from trying to normalize incorrectly captured points
-                    if row[key + "X"][sequence_index] == 0 or (ending_point[0] - starting_point[0]) == 0 or (starting_point[1] - ending_point[1]) == 0:
-                        continue
-
-                    normalized_x = (row[key + "X"][sequence_index] - starting_point[0]) / (ending_point[0] -
-                                                                                           starting_point[0])
-                    normalized_y = (row[key + "Y"][sequence_index] - ending_point[1]) / (starting_point[1] -
-                                                                                         ending_point[1])
-
-                    row[key + "X"][sequence_index] = normalized_x
-                    row[key + "Y"][sequence_index] = normalized_y
-
-        normalized_df = pd.concat([normalized_df, row.to_frame().T], ignore_index=True)
-
-    return normalized_df
+        # Per-landmark skip: x == 0 means not detected (mirrors normalize_single_dict)
+        active = mask_x
+        seq[f, x_cols[active]] = (seq[f, x_cols[active]] - start_x) / span_x
+        seq[f, y_cols[active]] = (seq[f, y_cols[active]] - start_y) / span_y
 
 
-def normalize_single_dict(row: dict):
+def normalize_hands_inplace(seq: np.ndarray) -> None:
     """
-    Normalizes the skeletal data for a given sequence of frames with signer's hand pose data. The normalization follows
-    the definition from our paper.
+    Apply Bohacek hand normalization to both hands in-place.
 
-    :param row: Dictionary containing key-value pairs with joint identifiers and corresponding lists (sequences) of
-                that particular joints coordinates
-    :return: Dictionary with normalized skeletal data (following the same schema as input data)
+    :param seq: (num_frames, 108) array produced by select_features()
     """
+    normalize_hand_inplace(seq, LEFT_HAND_START)
+    normalize_hand_inplace(seq, RIGHT_HAND_START)
 
-    hand_landmarks = {0: [], 1: []}
 
-    # Determine how many hands are present in the dataset
-    range_hand_size = 1
-    if "wrist_1" in row.keys():
-        range_hand_size = 2
+def normalize_single_np(arr: np.ndarray) -> np.ndarray:
+    """
+    Normalize hand landmarks for a single video sequence.
 
-    # Construct the relevant identifiers
-    for identifier in HAND_IDENTIFIERS:
-        for hand_index in range(range_hand_size):
-            hand_landmarks[hand_index].append(identifier + "_" + str(hand_index))
+    :param arr: (num_frames, num_features)
+    :return: Copy with hand columns normalized.
+    """
+    out = arr.copy()
+    normalize_hands_inplace(out)
+    return out
 
-    # Treat each hand individually
-    for hand_index in range(range_hand_size):
 
-        sequence_size = len(row["wrist_" + str(hand_index)])
+def normalize_hands_full_np(arr: np.ndarray) -> np.ndarray:
+    """
+    Batch-normalize hand landmarks across all video sequences.
 
-        # Treat each element of the sequence (analyzed frame) individually
-        for sequence_index in range(sequence_size):
-
-            # Retrieve all of the X and Y values of the current frame
-            landmarks_x_values = [row[key][sequence_index][0] for key in hand_landmarks[hand_index] if
-                                  row[key][sequence_index][0] != 0]
-            landmarks_y_values = [row[key][sequence_index][1] for key in hand_landmarks[hand_index] if
-                                  row[key][sequence_index][1] != 0]
-
-            # Prevent from even starting the analysis if some necessary elements are not present
-            if not landmarks_x_values or not landmarks_y_values:
-                continue
-
-            # Calculate the deltas
-            width, height = max(landmarks_x_values) - min(landmarks_x_values), max(landmarks_y_values) - min(
-                landmarks_y_values)
-            if width > height:
-                delta_x = 0.1 * width
-                delta_y = delta_x + ((width - height) / 2)
-            else:
-                delta_y = 0.1 * height
-                delta_x = delta_y + ((height - width) / 2)
-
-            # Set the starting and ending point of the normalization bounding box
-            starting_point = (min(landmarks_x_values) - delta_x, min(landmarks_y_values) - delta_y)
-            ending_point = (max(landmarks_x_values) + delta_x, max(landmarks_y_values) + delta_y)
-
-            # Normalize individual landmarks and save the results
-            for identifier in HAND_IDENTIFIERS:
-                key = identifier + "_" + str(hand_index)
-
-                # Prevent from trying to normalize incorrectly captured points
-                if row[key][sequence_index][0] == 0 or (ending_point[0] - starting_point[0]) == 0 or (
-                        starting_point[1] - ending_point[1]) == 0:
-                    continue
-
-                normalized_x = (row[key][sequence_index][0] - starting_point[0]) / (ending_point[0] -
-                                                                                       starting_point[0])
-                normalized_y = (row[key][sequence_index][1] - starting_point[1]) / (ending_point[1] -
-                                                                                     starting_point[1])
-
-                row[key][sequence_index] = list(row[key][sequence_index])
-
-                row[key][sequence_index][0] = normalized_x
-                row[key][sequence_index][1] = normalized_y
-
-    return row
+    :param arr: (num_videos, num_frames, num_features)
+    :return: Normalized copy.
+    """
+    out = arr.copy()
+    for i in range(out.shape[0]):
+        normalize_hands_inplace(out[i])
+    return out
 
 
 if __name__ == "__main__":
