@@ -11,6 +11,7 @@ Run:  conda activate dsde && python main.py
 Quit: press Q or close the window
 """
 
+import csv
 import logging
 import time
 from collections import deque
@@ -120,6 +121,20 @@ def main() -> None:
                 last_trigger = {"id": se.sign_id, "buf": se.buffer_length, "dur": se.sign_duration_s}
                 log.info("→ M4 stub: sign #%d  norm=%s  (%.2fs)",
                          se.sign_id, norm_buf.shape, se.sign_duration_s)
+                
+                # Save normalized buffer to CSV file
+                norm_csv = f'norm_buf_{se.sign_id}.csv'
+                with open(norm_csv, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    header = ['frame'] + [f'feature{i}' for i in range(norm_buf.shape[1])]
+                    writer.writerow(header)
+                    for i, row in enumerate(norm_buf):
+                        writer.writerow([i] + row.tolist())
+                
+                # Save normalized buffer to NPY file
+                norm_npy = f'norm_buf_{se.sign_id}.npy'
+                np.save(norm_npy, norm_buf)
+                
                 # prediction 
                 if norm_buf is not None:
                     last_results = engine.run_inference(norm_buf, t_frame_start)

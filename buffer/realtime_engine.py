@@ -168,11 +168,11 @@ class RealtimeEngine:
             self._consecutive_rest = 0
             self._consecutive_active += 1
             self.buffer.append(frame)
+            if len(self.buffer) >= BUFFER_SIZE:
+                self._fire_inference()
         else:
             self._consecutive_active = 0
             self._consecutive_rest += 1
-            if self._consecutive_rest >= self.tr:
-                self._fire_inference()
 
     def _transition(
         self, new_state: State, reason: str, error_label: str = ""
@@ -208,7 +208,7 @@ class RealtimeEngine:
 
         self._transition(
             State.IDLE,
-            reason=f"TR={self.tr} consecutive rest frames → inference fired",
+            reason=f"buffer full ({BUFFER_SIZE} frames) → inference fired",
             error_label=error_label,
         )
         self._last_trigger_frame = self.frame_idx
