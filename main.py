@@ -1,37 +1,135 @@
+"""
+main.py — ISL recognition pipeline (M3 debug mode)
+
+M1 : extractor.LandmarkExtractor  (HolisticLandmarker → 65-point (65,2) array)
+M3 : buffer.M3StateMachine         (state machine + 64-frame buffer)
+     H/A classification uses only hand rows [23:65] — head/body motion is ignored
+M4 stub : prints buffer info when triggered
+M2 stub : inline OpenCV overlay
+
+Run:  conda activate dsde && python main.py
+Quit: press Q or close the window
+"""
+
+import logging
+import time
+
 import cv2
+import numpy as np
 
-# ── M4: load model once before loop ──────────────────────────────────────────
-# model = m4.load()
-last_results = None
+from buffer import M3StateMachine, normalize_buffer
+from contract.contracts import SignState
+from extractor.mediapipe_pipeline import LandmarkExtractor
 
-cap = cv2.VideoCapture(0)
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d  %(name)-4s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("main")
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+# Uncomment to also see per-frame motion scores (very verbose):
+# logging.getLogger("M3").setLevel(logging.DEBUG)
 
-    frame = cv2.flip(frame, 1)
+_FONT = cv2.FONT_HERSHEY_SIMPLEX
 
-    # ── M1: extract landmarks ─────────────────────────────────────────────────
-    # landmarks, bbox = m1.extract(frame) (1, 150)
 
-    # ── M3: update state machine, get buffer if sign detected ─────────────────
-    # buffer, state = m3.update(landmarks) 
+# ── M2 stub: overlay ──────────────────────────────────────────────────────────
 
-    # ── M4: run inference if buffer is ready ──────────────────────────────────
-    # if buffer is not None:
-    #     last_results = m4.infer(buffer) 
+def _draw_overlay(frame: np.ndarray, state_update, last_trigger: dict) -> None:
+    h, w = frame.shape[:2]
 
-    # ── M2: render overlay on frame ───────────────────────────────────────────
-    # frame = m2.render(frame, bbox, state, last_results)
+    if state_update.state == SignState.ACTIVE:
+        color = (0, 220, 0)
+        label = f"ACTIVE  [{state_update.active_frame_count} fr]"
+    else:
+        color = (160, 160, 160)
+        label = "IDLE"
+    cv2.putText(frame, label, (10, 36), _FONT, 1.0, color, 2, cv2.LINE_AA)
 
-    cv2.imshow("ISL Recognition", frame)
+    if last_trigger:
+        txt = (f"last: sign #{last_trigger['id']}  "
+               f"{last_trigger['buf']} frames  "
+               f"{last_trigger['dur']:.2f}s")
+        cv2.putText(frame, txt, (10, h - 14), _FONT, 0.5, (0, 200, 255), 1, cv2.LINE_AA)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-    if cv2.getWindowProperty("ISL Recognition", cv2.WND_PROP_VISIBLE) < 1:
-        break
+    hint = "Q=quit"
+    (tw, _), _ = cv2.getTextSize(hint, _FONT, 0.45, 1)
+    cv2.putText(frame, hint, (w - tw - 8, 20), _FONT, 0.45, (100, 100, 100), 1, cv2.LINE_AA)
 
-cap.release()
-cv2.destroyAllWindows()
+
+def _draw_hand_dots(frame: np.ndarray, raw: np.ndarray) -> None:
+    """Draw left-hand (blue) and right-hand (red) landmark dots."""
+    h, w = frame.shape[:2]
+    for pts, color in [(raw[23:44], (220, 100, 0)), (raw[44:65], (0, 80, 220))]:
+        for x, y in pts:
+            if x == 0.0 and y == 0.0:
+                continue
+            cv2.circle(frame, (int(x * w), int(y * h)), 3, color, -1)
+
+
+# ── Main loop ─────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    log.info("ISL pipeline starting — M3 debug mode")
+    log.info("  TA=5  TR=10  motion_threshold=0.020")
+    log.info("  H/A classification uses HAND landmarks only (rows 23-65)")
+    log.info("  Head / body movement will NOT trigger ACTIVE")
+    log.info("-" * 60)
+
+    m1 = LandmarkExtractor()
+    m3 = M3StateMachine(ta=5, tr=10, motion_threshold=0.02)
+
+    last_trigger: dict = {}
+
+    try:
+        while True:
+            # ── M1: capture + extract landmarks ──────────────────────────────
+            raw_frame, capture_ts = m1.grab()
+            if raw_frame is None:
+                log.warning("Webcam read failed — exiting")
+                break
+
+            raw_frame = cv2.flip(raw_frame, 1)
+            packet = m1.extract(raw_frame, capture_ts)
+
+            # ── M3: state machine (landmark-based H/A from hands only) ───────
+            state_update = m3.update(packet)
+
+            # ── M4 stub ───────────────────────────────────────────────────────
+            if state_update.triggered:
+                raw_buf  = m3.take_buffer()
+                norm_buf = normalize_buffer(raw_buf)   # (64, 108) float32
+                se = state_update.sign_event
+                last_trigger = {"id": se.sign_id, "buf": se.buffer_length, "dur": se.sign_duration_s}
+                log.info("→ M4 stub: sign #%d  raw=%d frames  norm=%s  (%.2fs)",
+                         se.sign_id, len(raw_buf), norm_buf.shape, se.sign_duration_s)
+                # TODO: prediction = m4.infer(se, norm_buf)
+
+            # ── M2 stub: overlay ──────────────────────────────────────────────
+            display = packet.image_bgr.copy()
+            if packet.landmarks_raw is not None:
+                _draw_hand_dots(display, packet.landmarks_raw)
+            _draw_overlay(display, state_update, last_trigger)
+
+            cv2.imshow("ISL Recognition — M3 debug", display)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+            if cv2.getWindowProperty("ISL Recognition — M3 debug", cv2.WND_PROP_VISIBLE) < 1:
+                break
+
+    finally:
+        m1.release()
+        cv2.destroyAllWindows()
+
+    m3.save_trigger_log("trigger_error_log.csv")
+    log.info("-" * 60)
+    log.info("Session ended — error summary:")
+    for k, v in m3.error_summary().items():
+        log.info("  %s: %s", k, v)
+    log.info("trigger_error_log.csv saved")
+
+
+if __name__ == "__main__":
+    main()
