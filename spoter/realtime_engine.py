@@ -29,6 +29,7 @@ class SignLanguageEngine:
         # 3. Load Labels
         with open(label_path, 'r', encoding='utf-8') as f:
             self.label_map = json.load(f)
+        self.label_map = self.label_map["int_to_gloss"]
 
         # เตรียม Identifiers ไว้ล่วงหน้า
         self.hand_ids = [id + "_0" for id in HAND_IDENTIFIERS] + [id + "_1" for id in HAND_IDENTIFIERS]
