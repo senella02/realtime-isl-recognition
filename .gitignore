@@ -38,3 +38,5 @@ data_preprocess/*.zip
 
 # MediaPipe model files (large binaries, download separately)
 models/*.task
+
+trigger_error_log.csv

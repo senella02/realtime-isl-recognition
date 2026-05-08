@@ -12,6 +12,9 @@ _FONT = cv2.FONT_HERSHEY_SIMPLEX
 _PAD = 10          # generic padding (px)
 _PRED_PANEL_W = 240  # prediction panel width (px)
 _PRED_ROW_H   = 28   # height per prediction row (px)
+FPS = 29.97
+FRAME_COUNT = 64
+TOTAL_SIGN_S = FRAME_COUNT/FPS
 
 # colours (BGR)
 _C_GREEN = (0, 220, 0)
@@ -86,9 +89,8 @@ class OverlayRenderer:
             self._draw_landmarks(out, frame_packet.landmarks_raw)
         self._draw_state(out, state_update)
         self._draw_fps(out, fps, w)
-        self._draw_frame_id(out, frame_packet.frame_id, w, h)
         if latest_prediction is not None:
-            self._draw_predictions(out, latest_prediction, h)
+            self._draw_predictions(out, latest_prediction, state_update, h)
         return out
 
     # ── private helpers ───────────────────────────────────────────────────────
@@ -136,17 +138,17 @@ class OverlayRenderer:
         (tw, _), _ = cv2.getTextSize(text, _FONT, 0.55, 1)
         _put_text(img, text, (width - tw - _PAD, _PAD + 18), scale=0.55, color=_C_WHITE)
 
-    def _draw_frame_id(self, img: np.ndarray, frame_id: int, width: int, height: int) -> None:
-        text = f"frame {frame_id}"
-        (tw, _), _ = cv2.getTextSize(text, _FONT, 0.4, 1)
-        _put_text(img, text, (width - tw - _PAD, height - _PAD), scale=0.4, color=(140, 140, 140))
+    # def _draw_frame_id(self, img: np.ndarray, frame_id: int, width: int, height: int) -> None:
+    #     text = f"frame {frame_id}"
+    #     (tw, _), _ = cv2.getTextSize(text, _FONT, 0.4, 1)
+    #     _put_text(img, text, (width - tw - _PAD, height - _PAD), scale=0.4, color=(140, 140, 140))
 
-    def _draw_predictions(self, img: np.ndarray, pred: Prediction, height: int) -> None:
+    def _draw_predictions(self, img: np.ndarray, pred: Prediction, state_update : StateUpdate, height: int) -> None:
         """Minimal bottom-right panel: three rows, rank-dimmed, no bars."""
         w = img.shape[1]
         n = min(len(pred.top_k_glosses), 3)
-
-        panel_h = n * _PRED_ROW_H + _PAD
+        footer_h = 26
+        panel_h = n * _PRED_ROW_H + _PAD + footer_h
         x0 = w - _PRED_PANEL_W - _PAD
         y0 = height - panel_h - _PAD
 
@@ -182,3 +184,16 @@ class OverlayRenderer:
                       (w - _PAD * 2 - tw, row_y),
                       scale=0.45,
                       color=_C_CYAN if rank == 0 else color)
+        footer_y = y0 + n * _PRED_ROW_H + 18
+ 
+        RTF = (pred.inference_end_ts - pred.inference_start_ts)/TOTAL_SIGN_S
+        footer_text = f"RTF: {RTF}"
+
+        _put_text(
+            img,
+            footer_text,
+            (x0, footer_y),
+            scale=0.45,
+            color=_C_YELLOW,
+            thickness=1,
+        )

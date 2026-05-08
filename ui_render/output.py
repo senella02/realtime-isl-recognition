@@ -8,7 +8,6 @@ from contract.contracts import FramePacket, Prediction, StateUpdate
 from ui_render.ui_overlay import OverlayRenderer
 from ui_render.runtime.fps_meter import FpsMeter
 
-
 _WINDOW_NAME = "ISL Recognition"
 
 
