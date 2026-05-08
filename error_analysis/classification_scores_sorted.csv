@@ -1,0 +1,184 @@
+ID,Gloss,Category,Precision,Recall,F1_score,Support,CategoryGroup
+0,Country,Countries,100.0%,100.0%,100.0%,2,Countries
+1,Thailand,Countries,100.0%,100.0%,100.0%,2,Countries
+2,Laos,Countries,100.0%,100.0%,100.0%,2,Countries
+4,Cambodia,Countries,100.0%,100.0%,100.0%,2,Countries
+6,China,Countries,100.0%,100.0%,100.0%,2,Countries
+11,Israel,Countries,100.0%,100.0%,100.0%,2,Countries
+9,Taiwan,Countries,100.0%,100.0%,100.0%,2,Countries
+8,Macau,Countries,100.0%,100.0%,100.0%,2,Countries
+5,Vietnam,Countries,66.67%,100.0%,80.0%,2,Countries
+10,Pakistan,Countries,100.0%,50.0%,66.67%,2,Countries
+7,Hong Kong,Countries,100.0%,50.0%,66.67%,2,Countries
+3,Myanmar,Countries,50.0%,50.0%,50.0%,2,Countries
+118,Great-grandfather,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+113,Children,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+111,Dad,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+110,Wife,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+109,Husband,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+131,Older sister,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+129,Older brother,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+126,Friend,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+127,Close friend,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+121,Great-grandchild,Family & Relationships,100.0%,100.0%,100.0%,2,Family & Relationships
+136,Parent,Family & Relationships,66.67%,100.0%,80.0%,2,Family & Relationships
+135,Family,Family & Relationships,66.67%,100.0%,80.0%,2,Family & Relationships
+134,Cousin,Family & Relationships,66.67%,100.0%,80.0%,2,Family & Relationships
+130,Younger brother,Family & Relationships,100.0%,50.0%,66.67%,2,Family & Relationships
+133,Relative,Family & Relationships,100.0%,50.0%,66.67%,2,Family & Relationships
+119,Great-grandmother,Family & Relationships,100.0%,50.0%,66.67%,2,Family & Relationships
+115,Grandmother,Family & Relationships,50.0%,100.0%,66.67%,2,Family & Relationships
+114,Grandfather,Family & Relationships,50.0%,100.0%,66.67%,2,Family & Relationships
+116,Grandpa,Family & Relationships,100.0%,50.0%,66.67%,2,Family & Relationships
+125,Aunt (Father's younger brother or sister),Family & Relationships,40.0%,100.0%,57.14%,2,Family & Relationships
+120,Grandchild,Family & Relationships,50.0%,50.0%,50.0%,2,Family & Relationships
+128,Girlfriend,Family & Relationships,50.0%,50.0%,50.0%,2,Family & Relationships
+112,Mom,Family & Relationships,50.0%,50.0%,50.0%,2,Family & Relationships
+132,Younger sister,Family & Relationships,50.0%,50.0%,50.0%,2,Family & Relationships
+117,Grandma,Family & Relationships,0.0%,0.0%,0.0%,2,Family & Relationships
+124,Uncle (Mother's younger brother or sister),Family & Relationships,0.0%,0.0%,0.0%,2,Family & Relationships
+122,Uncle (Mother's or father's older brother),Family & Relationships,0.0%,0.0%,0.0%,2,Family & Relationships
+145,Ladyboy,Genders,100.0%,100.0%,100.0%,1,Genders
+137,Male,Genders,100.0%,100.0%,100.0%,2,Genders
+139,Gay,Genders,100.0%,100.0%,100.0%,2,Genders
+140,Transgender,Genders,66.67%,100.0%,80.0%,2,Genders
+144,Tomboy,Genders,50.0%,100.0%,66.67%,1,Genders
+143,Lesbian,Genders,100.0%,50.0%,66.67%,2,Genders
+142,LGBTQ+,Genders,100.0%,50.0%,66.67%,2,Genders
+141,Gender,Genders,50.0%,50.0%,50.0%,2,Genders
+138,Female,Genders,33.33%,50.0%,40.0%,2,Genders
+175,Century egg,Groceries,100.0%,100.0%,100.0%,2,Groceries
+177,Pork,Groceries,100.0%,100.0%,100.0%,2,Groceries
+174,Duck egg,Groceries,100.0%,100.0%,100.0%,2,Groceries
+172,Egg,Groceries,100.0%,100.0%,100.0%,2,Groceries
+173,Chicken egg,Groceries,100.0%,100.0%,100.0%,2,Groceries
+182,Fish meat,Groceries,100.0%,100.0%,100.0%,2,Groceries
+183,Grocery,Groceries,100.0%,100.0%,100.0%,2,Groceries
+181,Venison,Groceries,100.0%,100.0%,100.0%,2,Groceries
+180,Mutton,Groceries,100.0%,100.0%,100.0%,2,Groceries
+176,Salted egg,Groceries,100.0%,100.0%,100.0%,2,Groceries
+179,Beef,Groceries,66.67%,100.0%,80.0%,2,Groceries
+178,Wild boar meat,Groceries,100.0%,50.0%,66.67%,2,Groceries
+50,One,Numbers,100.0%,100.0%,100.0%,2,Numbers
+49,Zero,Numbers,100.0%,100.0%,100.0%,2,Numbers
+51,Two,Numbers,100.0%,100.0%,100.0%,2,Numbers
+52,Three,Numbers,100.0%,100.0%,100.0%,2,Numbers
+54,Five,Numbers,100.0%,100.0%,100.0%,2,Numbers
+53,Four,Numbers,100.0%,100.0%,100.0%,2,Numbers
+59,Ten,Numbers,100.0%,100.0%,100.0%,2,Numbers
+57,Eight,Numbers,100.0%,100.0%,100.0%,2,Numbers
+56,Seven,Numbers,100.0%,100.0%,100.0%,2,Numbers
+55,Six,Numbers,50.0%,50.0%,50.0%,2,Numbers
+58,Nine,Numbers,0.0%,0.0%,0.0%,2,Numbers
+22,Hua Lamphong Railway Station,Special locations,100.0%,100.0%,100.0%,2,Special locations
+21,Giant Swing,Special locations,100.0%,100.0%,100.0%,2,Special locations
+19,Wat Phra That Doi Suthep,Special locations,100.0%,100.0%,100.0%,2,Special locations
+13,Wat Pho,Special locations,100.0%,100.0%,100.0%,1,Special locations
+20,Sanam Luang,Special locations,100.0%,100.0%,100.0%,2,Special locations
+16,Temple of the Golden Mount,Special locations,100.0%,100.0%,100.0%,1,Special locations
+36,Central Department Store,Special locations,100.0%,100.0%,100.0%,2,Special locations
+37,MBK Center,Special locations,100.0%,100.0%,100.0%,2,Special locations
+32,Lumphini Park,Special locations,100.0%,100.0%,100.0%,1,Special locations
+33,The Memorial Monument of Thao Suranaree,Special locations,100.0%,100.0%,100.0%,2,Special locations
+35,Siam Square,Special locations,100.0%,100.0%,100.0%,2,Special locations
+31,Wongwian Yai,Special locations,100.0%,100.0%,100.0%,1,Special locations
+28,Crocodile farm,Special locations,100.0%,100.0%,100.0%,2,Special locations
+30,Amporn Gardens,Special locations,100.0%,100.0%,100.0%,1,Special locations
+26,Victory Monument,Special locations,100.0%,100.0%,100.0%,2,Special locations
+24,Bang Lamphu,Special locations,100.0%,100.0%,100.0%,1,Special locations
+46,Siam Amazing Park,Special locations,100.0%,100.0%,100.0%,2,Special locations
+42,Tesco Lotus,Special locations,100.0%,100.0%,100.0%,2,Special locations
+34,Chatuchak Park,Special locations,66.67%,100.0%,80.0%,2,Special locations
+47,Dreamworld,Special locations,66.67%,100.0%,80.0%,2,Special locations
+48,Safari World,Special locations,66.67%,100.0%,80.0%,2,Special locations
+23,Yaowarat,Special locations,66.67%,100.0%,80.0%,2,Special locations
+12,Wat Phra Kaew,Special locations,66.67%,100.0%,80.0%,2,Special locations
+38,Robinson Department Store,Special locations,100.0%,50.0%,66.67%,2,Special locations
+25,Government House,Special locations,100.0%,50.0%,66.67%,2,Special locations
+27,Democracy Monument,Special locations,100.0%,50.0%,66.67%,2,Special locations
+43,Big C,Special locations,50.0%,100.0%,66.67%,2,Special locations
+40,Future Park Rangsit,Special locations,100.0%,50.0%,66.67%,2,Special locations
+44,Chatuchak Weekend Market,Special locations,100.0%,50.0%,66.67%,2,Special locations
+41,Makro,Special locations,100.0%,50.0%,66.67%,2,Special locations
+18,Wat Phra Pathom Chedi,Special locations,33.33%,50.0%,40.0%,2,Special locations
+45,Train Night Market,Special locations,0.0%,0.0%,0.0%,2,Special locations
+39,The Mall Department Store,Special locations,0.0%,0.0%,0.0%,2,Special locations
+15,Wat Benchamabophit,Special locations,0.0%,0.0%,0.0%,1,Special locations
+14,Wat Arun,Special locations,0.0%,0.0%,0.0%,1,Special locations
+29,Damnoen Saduak Floating Market,Special locations,0.0%,0.0%,0.0%,2,Special locations
+17,Wat Phra That Phanom,Special locations,0.0%,0.0%,0.0%,1,Special locations
+160,Weight throwing,Sports,100.0%,100.0%,100.0%,2,Sports
+161,Discus throwing,Sports,100.0%,100.0%,100.0%,2,Sports
+163,Shooting,Sports,100.0%,100.0%,100.0%,2,Sports
+165,Archery,Sports,100.0%,100.0%,100.0%,2,Sports
+159,High Jump,Sports,100.0%,100.0%,100.0%,2,Sports
+166,Cycling,Sports,100.0%,100.0%,100.0%,2,Sports
+154,Tennis,Sports,100.0%,100.0%,100.0%,2,Sports
+158,Running,Sports,100.0%,100.0%,100.0%,2,Sports
+170,Sailboat,Sports,100.0%,100.0%,100.0%,2,Sports
+171,Sport,Sports,100.0%,100.0%,100.0%,2,Sports
+162,Javelin throwing,Sports,66.67%,100.0%,80.0%,2,Sports
+167,Chess,Sports,66.67%,100.0%,80.0%,2,Sports
+164,Swimming,Sports,100.0%,50.0%,66.67%,2,Sports
+168,Bowling,Sports,100.0%,50.0%,66.67%,2,Sports
+169,Golf,Sports,100.0%,50.0%,66.67%,2,Sports
+156,Gymnastic,Sports,100.0%,50.0%,66.67%,2,Sports
+157,Petanque,Sports,33.33%,50.0%,40.0%,2,Sports
+155,Table Tennis,Sports,33.33%,50.0%,40.0%,2,Sports
+80,Bor Bai Mai,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+81,Ror Rua,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+79,Hor Nok Hoog,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+77,Phor Samphao,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+75,Por Plaa,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+74,Phor Phaan,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+84,Dor Cha-Daa,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+83,Dor Dek,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+72,Sor Rue Si,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+73,Sor So,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+69,Tor Pa-Tuk,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+71,Sor Saalaa,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+68,Thor Mon-Tho,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+67,Thor Phoo Thao,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+66,Thor Tharn,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+70,Sor Sua,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+65,Thor Thoong,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+63,Kor Ra-Kung,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+61,Kor Kai,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+62,Kor Kwaii,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+60,Gor Gai,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+96,Tor Thaharn,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+97,Thor Thohng,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+94,Nor Nayn,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+95,Ngor Ngoo,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+91,Yor Ying,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+90,Yor Yuk,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+89,Jor Jaan,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+88,Lor Chulaa,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+108,aii,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+107,ai,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+106,o,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+105,uu,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+99,Chor Chaang,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+100,Chor Cher,Thai Alphabet & Vowels,100.0%,100.0%,100.0%,2,Thai Alphabet & Vowels
+92,Mor Maa,Thai Alphabet & Vowels,66.67%,100.0%,80.0%,2,Thai Alphabet & Vowels
+78,Hor Heep,Thai Alphabet & Vowels,66.67%,100.0%,80.0%,2,Thai Alphabet & Vowels
+76,Phor Pheung,Thai Alphabet & Vowels,66.67%,100.0%,80.0%,2,Thai Alphabet & Vowels
+64,Tor Tao,Thai Alphabet & Vowels,66.67%,100.0%,80.0%,2,Thai Alphabet & Vowels
+87,Lor Ling,Thai Alphabet & Vowels,50.0%,100.0%,66.67%,2,Thai Alphabet & Vowels
+103,ee,Thai Alphabet & Vowels,100.0%,50.0%,66.67%,2,Thai Alphabet & Vowels
+98,Chor Ching,Thai Alphabet & Vowels,100.0%,50.0%,66.67%,2,Thai Alphabet & Vowels
+86,Fhor Fhaa,Thai Alphabet & Vowels,50.0%,100.0%,66.67%,2,Thai Alphabet & Vowels
+85,For Fun,Thai Alphabet & Vowels,40.0%,100.0%,57.14%,2,Thai Alphabet & Vowels
+82,Wor Whaen,Thai Alphabet & Vowels,50.0%,50.0%,50.0%,2,Thai Alphabet & Vowels
+93,Nor Nhoo,Thai Alphabet & Vowels,50.0%,50.0%,50.0%,2,Thai Alphabet & Vowels
+102,i,Thai Alphabet & Vowels,25.0%,50.0%,33.33%,2,Thai Alphabet & Vowels
+104,u,Thai Alphabet & Vowels,0.0%,0.0%,0.0%,2,Thai Alphabet & Vowels
+101,Or Aang,Thai Alphabet & Vowels,0.0%,0.0%,0.0%,2,Thai Alphabet & Vowels
+153,Badminton,Unknown,100.0%,100.0%,100.0%,2,Unknown
+150,Boxing,Unknown,100.0%,100.0%,100.0%,2,Unknown
+149,Takraw,Unknown,100.0%,100.0%,100.0%,2,Unknown
+146,Football,Unknown,100.0%,100.0%,100.0%,2,Unknown
+147,Basketball,Unknown,100.0%,50.0%,66.67%,2,Unknown
+148,Volleyball,Unknown,50.0%,50.0%,50.0%,2,Unknown
+152,Judo,Unknown,33.33%,50.0%,40.0%,2,Unknown
+151,Wrestling,Unknown,0.0%,0.0%,0.0%,2,Unknown
