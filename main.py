@@ -12,6 +12,8 @@ Quit: press Q or close the window
 
 import logging
 import time
+import os
+from datetime import datetime
 
 import cv2
 import numpy as np
@@ -44,6 +46,40 @@ MODEL_PATH = "spoter/spoter_model_final.pt"
 LABEL_PATH = "spoter/label_map.json"
 
 engine = SignLanguageEngine(MODEL_PATH, LABEL_PATH)
+
+# ── Output directory for buffer CSVs ──────────────────────────────────────────
+BUFFER_OUTPUT_DIR = "buffer_outputs"
+os.makedirs(BUFFER_OUTPUT_DIR, exist_ok=True)
+
+
+# ── Save buffer to CSV ────────────────────────────────────────────────────────
+
+def save_buffer_to_csv(df: pd.DataFrame, sign_id: int, prediction_label: str = "") -> str:
+    """
+    Write take_buffer() DataFrame to a CSV file.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame returned by m3.take_buffer()
+    sign_id : int
+        Sign ID for labeling
+    prediction_label : str
+        Top-1 prediction gloss (optional, for naming)
+    
+    Returns
+    -------
+    str
+        Path to the saved CSV file
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    label_suffix = f"_{prediction_label}" if prediction_label else ""
+    filename = f"sign_{sign_id:03d}_{timestamp}{label_suffix}.csv"
+    filepath = os.path.join(BUFFER_OUTPUT_DIR, filename)
+    
+    df.to_csv(filepath, index=False)
+    log.info(f"✓ Buffer saved: {filepath}")
+    return filepath
 
 
 # ── Buffer → numpy conversion ─────────────────────────────────────────────────
@@ -106,26 +142,35 @@ def main() -> None:
             prediction = None
             if state_update.triggered:
                 csv_buf  = m3.take_buffer()
-                norm_buf = _csv_buf_to_numpy(csv_buf)
-                se = state_update.sign_event
+                
+                # Save buffer to CSV
+                pred_label = ""
+                if not csv_buf.empty:
+                    norm_buf = _csv_buf_to_numpy(csv_buf)
+                    se = state_update.sign_event
 
-                result = engine.run_inference(norm_buf)
-                prediction = Prediction(
-                    sign_id=se.sign_id,
-                    inference_start_ts=result["inference_start_ts"],
-                    inference_end_ts=result["inference_end_ts"],
-                    probs=result["probs"],
-                    top_k_indices=result["top_k_indices"],
-                    top_k_probs=result["top_k_probs"],
-                    top_k_glosses=result["top_k_glosses"],
-                )
-                log.info(
-                    "→ M4: sign #%d  top=%s (%.1f%%)  %.1f ms",
-                    se.sign_id,
-                    prediction.top_k_glosses[0],
-                    prediction.top_k_probs[0] * 100,
-                    (result["inference_end_ts"] - result["inference_start_ts"]) * 1000,
-                )
+                    result = engine.run_inference(norm_buf)
+                    pred_label = result["top_k_glosses"][0] if result["top_k_glosses"] else ""
+                    
+                    prediction = Prediction(
+                        sign_id=se.sign_id,
+                        inference_start_ts=result["inference_start_ts"],
+                        inference_end_ts=result["inference_end_ts"],
+                        probs=result["probs"],
+                        top_k_indices=result["top_k_indices"],
+                        top_k_probs=result["top_k_probs"],
+                        top_k_glosses=result["top_k_glosses"],
+                    )
+                    log.info(
+                        "→ M4: sign #%d  top=%s (%.1f%%)  %.1f ms",
+                        se.sign_id,
+                        prediction.top_k_glosses[0],
+                        prediction.top_k_probs[0] * 100,
+                        (result["inference_end_ts"] - result["inference_start_ts"]) * 1000,
+                    )
+                
+                # Write buffer to CSV file
+                save_buffer_to_csv(csv_buf, state_update.sign_id or 0, pred_label)
 
             # ── M2: render overlay (landmarks + state + predictions) ──────────
             m2.render(packet, state_update, prediction)
