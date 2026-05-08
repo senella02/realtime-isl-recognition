@@ -1,2 +1,3 @@
 timestamp,frame_idx,from_state,to_state,buffer_size,reason,error_label
-1778231258.6993,65,IDLE,ACTIVE,0,TA=5 consecutive active frames,
+1778231850.9544,65,IDLE,ACTIVE,0,TA=5 consecutive active frames,
+1778231853.9304,122,ACTIVE,IDLE,46,buffer full (64 frames) → inference fired,

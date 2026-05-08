@@ -68,7 +68,7 @@ def _csv_buf_to_numpy(df: pd.DataFrame, n_frames: int = 64) -> np.ndarray:
 def main(video_path: str) -> None:
     log.info("ISL pipeline starting (video mode)")
     log.info("  source: %s", video_path)
-    log.info("  TA=5  TR=10")
+    log.info("  TA=1  TR=1")
     log.info("-" * 60)
 
     m1 = VideoLandmarkExtractor(video_path)

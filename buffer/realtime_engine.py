@@ -173,6 +173,8 @@ class RealtimeEngine:
         else:
             self._consecutive_active = 0
             self._consecutive_rest += 1
+            if self._consecutive_rest >= self.tr:
+                self._fire_inference()
 
     def _transition(
         self, new_state: State, reason: str, error_label: str = ""

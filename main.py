@@ -46,7 +46,7 @@ engine = SignLanguageEngine(MODEL_PATH, LABEL_PATH)
 
 def main() -> None:
     log.info("ISL pipeline starting")
-    log.info("  TA=5  TR=10")
+    log.info("  TA=1  TR=1")
     log.info("-" * 60)
 
     m1 = LandmarkExtractor()
