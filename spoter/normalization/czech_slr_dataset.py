@@ -5,10 +5,10 @@ import pandas as pd
 import torch.utils.data as torch_data
 import numpy as np
 
-from normalization.body_normalization import BODY_IDENTIFIERS
-from normalization.hand_normalization import HAND_IDENTIFIERS
-from normalization.body_normalization import normalize_single_dict as normalize_single_body_dict
-from normalization.hand_normalization import normalize_single_dict as normalize_single_hand_dict
+from .body_normalization import BODY_IDENTIFIERS
+from .hand_normalization import HAND_IDENTIFIERS
+from .body_normalization import normalize_single_dict as normalize_single_body_dict
+from .hand_normalization import normalize_single_dict as normalize_single_hand_dict
 
 HAND_IDENTIFIERS = [id + "_0" for id in HAND_IDENTIFIERS] + [id + "_1" for id in HAND_IDENTIFIERS]
 

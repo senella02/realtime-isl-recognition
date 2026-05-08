@@ -8,8 +8,11 @@ try:
     from .normalization.hand_normalization import normalize_single_dict as normalize_single_hand_dict
     from .normalization.body_normalization import BODY_IDENTIFIERS
     from .normalization.hand_normalization import HAND_IDENTIFIERS
-    from ..data_preprocess.normalized_np.add_label_for_spoter import buffer_to_dataframe
-    from .czech_slr_dataset import CzechSLRDataset
+    from .normalization.czech_slr_dataset import CzechSLRDataset
+    # from .normalization.add_label_for_spoter import buffer_to_dataframe
+    from data_preprocess.normalized_np.add_label_for_spoter import buffer_to_dataframe
+    # from czech_slr_dataset import CzechSLRDataset
+    # from spoter.normalization.czech_slr_dataset import CzechSLRDataset
 except ImportError:
     print("⚠️ Warning: Could not import normalization modules. Check your folder structure.")
 
@@ -41,7 +44,8 @@ class SignLanguageEngine:
         inference_start_ts = time.perf_counter()
         
         # TODO 
-        buffer = np.load(raw_data_64_108).astype(np.float32)
+        # buffer = np.load(raw_data_64_108).astype(np.float32)
+        buffer = raw_data_64_108.astype(np.float32)
         df = buffer_to_dataframe(buffer, 0)
         dataset = CzechSLRDataset(dataset_filename="", dataframe=df, normalize=True)
         depth_map = dataset[0]
