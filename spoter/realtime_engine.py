@@ -54,37 +54,26 @@ class SignLanguageEngine:
         res = torch.from_numpy(output).float().to(self.device)
         return (res - 0.5).view(64, 108)
 
-    def run_inference(self, raw_data_64_108, overall_start):
+    def run_inference(self, raw_data_64_108: np.ndarray) -> dict:
+        inference_start_ts = time.perf_counter()
         preprocessed_data = self._internal_preprocess(raw_data_64_108)
-        
+
         with torch.no_grad():
             outputs = self.model(preprocessed_data)
             probabilities = torch.softmax(outputs, dim=1)
-            
-            # ดึง Top 5 ออกมาดูเลย
-            top_probs, top_indices = torch.topk(probabilities, 5)
-            
-            prediction = top_indices[0][0].item()
-            conf = top_probs[0][0].item()
-            label = self.label_map.get(str(prediction), "Unknown")
+            top_probs, top_indices = torch.topk(probabilities, 3)
 
-            # --- ส่วนที่ปิมต้องการ: ถ้าเจอ Unknown ให้เอาอันดับถัดไป ---
-            if label == "Unknown":
-                # วนลูปหาใน Top 5 ว่าตัวไหนไม่ใช่ Unknown ตัวแรก
-                for i in range(1, 5):
-                    next_idx = top_indices[0][i].item()
-                    next_label = self.label_map.get(str(next_idx), "Unknown")
-                    if next_label != "Unknown":
-                        label = f"{next_label} (Alt)" # ใส่ Alt ไว้ให้รู้ว่าเป็นตัวสำรอง
-                        conf = top_probs[0][i].item()
-                        break
+        inference_end_ts = time.perf_counter()
 
-        predict_end = time.perf_counter()
-        overall_total = (predict_end - overall_start) * 1000
-        
+        top_k_indices = [top_indices[0][i].item() for i in range(3)]
+        top_k_probs   = [top_probs[0][i].item()   for i in range(3)]
+        top_k_glosses = [self.label_map.get(str(idx), "Unknown") for idx in top_k_indices]
+
         return {
-            "label": label,
-            "confidence": f"{conf:.2%}",
-            "predict_time_ms": round((predict_end - overall_start) * 1000, 2), # ประมาณการ
-            "total_process_time_ms": round(overall_total, 2)
+            "inference_start_ts": inference_start_ts,
+            "inference_end_ts":   inference_end_ts,
+            "probs":              probabilities[0].cpu().numpy(),
+            "top_k_indices":      top_k_indices,
+            "top_k_probs":        top_k_probs,
+            "top_k_glosses":      top_k_glosses,
         }

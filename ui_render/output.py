@@ -62,7 +62,6 @@ class M2Output:
             else:
                 display_frame = annotated
             cv2.imshow(_WINDOW_NAME, display_frame)
-            cv2.waitKey(1)
 
         return annotated
 

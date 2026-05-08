@@ -16,6 +16,8 @@ _PRED_ROW_H   = 28   # height per prediction row (px)
 # colours (BGR)
 _C_GREEN = (0, 220, 0)
 _C_RED = (0, 0, 220)
+_C_BLUE = (220, 100, 0)    # left hand
+_C_RHAND = (0, 80, 220)    # right hand
 _C_WHITE = (255, 255, 255)
 _C_BLACK = (0, 0, 0)
 _C_YELLOW = (0, 220, 220)
@@ -27,6 +29,25 @@ _STATE_COLOR = {
     SignState.IDLE: _C_CYAN,
     SignState.ACTIVE: _C_GREEN,
 }
+
+
+def _bbox_from_points(pts: np.ndarray, frame_w: int, frame_h: int,
+                      pad: float = 0.05) -> tuple | None:
+    nonzero = pts[~np.all(pts == 0, axis=1)]
+    if len(nonzero) == 0:
+        return None
+    x_min, y_min = nonzero.min(axis=0)
+    x_max, y_max = nonzero.max(axis=0)
+    if x_max - x_min < 1e-4 or y_max - y_min < 1e-4:
+        return None
+    px = (x_max - x_min) * pad
+    py = (y_max - y_min) * pad
+    return (
+        int(max(0,       (x_min - px) * frame_w)),
+        int(max(0,       (y_min - py) * frame_h)),
+        int(min(frame_w, (x_max + px) * frame_w)),
+        int(min(frame_h, (y_max + py) * frame_h)),
+    )
 
 
 def _put_text(
@@ -61,6 +82,8 @@ class OverlayRenderer:
         h, w = out.shape[:2]
 
         self._draw_bbox(out, frame_packet)
+        if frame_packet.landmarks_raw is not None:
+            self._draw_landmarks(out, frame_packet.landmarks_raw)
         self._draw_state(out, state_update)
         self._draw_fps(out, fps, w)
         self._draw_frame_id(out, frame_packet.frame_id, w, h)
@@ -70,11 +93,36 @@ class OverlayRenderer:
 
     # ── private helpers ───────────────────────────────────────────────────────
 
+    def _draw_landmarks(self, img: np.ndarray, landmarks_raw: np.ndarray) -> None:
+        h, w = img.shape[:2]
+        regions = [
+            (landmarks_raw[0:23],  _C_WHITE,        4),  # body
+            (landmarks_raw[23:44], (220, 100,   0), 3),  # left hand
+            (landmarks_raw[44:65], (  0,  80, 220), 3),  # right hand
+        ]
+        for pts, color, r in regions:
+            for x, y in pts:
+                if x == 0.0 and y == 0.0:
+                    continue
+                cv2.circle(img, (int(x * w), int(y * h)), r, color, -1)
+
     def _draw_bbox(self, img: np.ndarray, packet: FramePacket) -> None:
-        if packet.bbox is None:
-            return
-        x1, y1, x2, y2 = (int(v) for v in packet.bbox)
-        cv2.rectangle(img, (x1, y1), (x2, y2), _C_GREEN, 2)
+        h, w = img.shape[:2]
+        if packet.bbox is not None:
+            x1, y1, x2, y2 = (int(v) for v in packet.bbox)
+            cv2.rectangle(img, (x1, y1), (x2, y2), _C_GREEN, 2)
+            cv2.putText(img, "body", (x1, y1 - 6), _FONT, 0.45, _C_GREEN, 1, cv2.LINE_AA)
+        if packet.landmarks_raw is not None:
+            lbox = _bbox_from_points(packet.landmarks_raw[23:44], w, h)
+            if lbox is not None:
+                x1, y1, x2, y2 = lbox
+                cv2.rectangle(img, (x1, y1), (x2, y2), _C_BLUE, 2)
+                cv2.putText(img, "left hand", (x1, y1 - 6), _FONT, 0.45, _C_BLUE, 1, cv2.LINE_AA)
+            rbox = _bbox_from_points(packet.landmarks_raw[44:65], w, h)
+            if rbox is not None:
+                x1, y1, x2, y2 = rbox
+                cv2.rectangle(img, (x1, y1), (x2, y2), _C_RHAND, 2)
+                cv2.putText(img, "right hand", (x1, y1 - 6), _FONT, 0.45, _C_RHAND, 1, cv2.LINE_AA)
 
     def _draw_state(self, img: np.ndarray, su: StateUpdate) -> None:
         color = _STATE_COLOR.get(su.state, _C_WHITE)
