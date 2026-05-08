@@ -14,8 +14,12 @@ import logging
 import time
 
 import cv2
+import numpy as np
+import pandas as pd
 
 from spoter.realtime_engine import SignLanguageEngine
+from spoter.normalization.body_normalization import BODY_IDENTIFIERS
+from spoter.normalization.hand_normalization import HAND_IDENTIFIERS
 from buffer import M3StateMachine
 from contract.contracts import Prediction
 from extractor.mediapipe_pipeline import LandmarkExtractor
@@ -40,6 +44,35 @@ MODEL_PATH = "spoter/spoter_model_final.pt"
 LABEL_PATH = "spoter/label_map.json"
 
 engine = SignLanguageEngine(MODEL_PATH, LABEL_PATH)
+
+
+# ── Buffer → numpy conversion ─────────────────────────────────────────────────
+
+def _csv_buf_to_numpy(df: pd.DataFrame, n_frames: int = 64) -> np.ndarray:
+    """
+    Convert a take_buffer() DataFrame to (n_frames, 108) float32 for the model.
+
+    Each DataFrame cell is a list of n_frames floats.  Columns are looked up by
+    the identifier names SPOTER expects, so the output order matches all_ids in
+    SignLanguageEngine._internal_preprocess.
+    """
+    if df.empty:
+        return np.zeros((n_frames, 108), dtype=np.float32)
+
+    row = df.iloc[0]
+    arrays = []
+
+    for name in BODY_IDENTIFIERS:
+        arrays.append(np.column_stack([row[f"{name}_X"], row[f"{name}_Y"]]))
+
+    for name in HAND_IDENTIFIERS:
+        arrays.append(np.column_stack([row[f"{name}_left_X"], row[f"{name}_left_Y"]]))
+
+    for name in HAND_IDENTIFIERS:
+        arrays.append(np.column_stack([row[f"{name}_right_X"], row[f"{name}_right_Y"]]))
+
+    # (54, n_frames, 2) → (n_frames, 54, 2) → (n_frames, 108)
+    return np.stack(arrays, axis=0).transpose(1, 0, 2).reshape(n_frames, 108).astype(np.float32)
 
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -72,9 +105,10 @@ def main() -> None:
             # ── M4: inference on sign trigger ─────────────────────────────────
             prediction = None
             if state_update.triggered:
-                norm_buf = m3.take_buffer()
+                csv_buf  = m3.take_buffer()
+                norm_buf = _csv_buf_to_numpy(csv_buf)
                 se = state_update.sign_event
-                
+
                 result = engine.run_inference(norm_buf)
                 prediction = Prediction(
                     sign_id=se.sign_id,

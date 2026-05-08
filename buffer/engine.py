@@ -19,10 +19,14 @@ import logging
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 
 from contract.contracts import FramePacket, SignEvent, SignState, StateUpdate
 from .realtime_engine import RealtimeEngine, State, BUFFER_SIZE
-from data_preprocess.normalized_np.main import normalized_batch
+from data_preprocess.npy_to_csv.convert_npy_to_csv import (
+    normalize_frames, build_column_names, HAND_JOINTS,
+)
+from data_preprocess.normalized_np.main import BODY_JOINTS_INPUT_INDEX
 
 NORM_FEATURES = 108   # 12 body × 2 + 21 left-hand × 2 + 21 right-hand × 2
 
@@ -150,32 +154,55 @@ class M3StateMachine:
             sign_event=sign_event,
         )
 
-    def take_buffer(self, pad_to: int = BUFFER_SIZE) -> np.ndarray:
+    def take_buffer(self, pad_to: int = BUFFER_SIZE) -> pd.DataFrame:
         """
-        Consume the buffer snapshot from the last trigger and return a normalized
-        (pad_to, 108) float32 array ready for model inference.
+        Consume the buffer snapshot from the last trigger and return a DataFrame
+        in SPOTER CSV column format (one row; each cell is a list of pad_to floats).
 
+        Temporal resampling uses normalize_frames() from npy_to_csv.
         Must be called in the same loop iteration that saw triggered=True.
-        Returns a zero array of shape (pad_to, 108) if called out of order.
+        Returns an empty DataFrame if called out of order.
         """
         raw_list = self._triggered_buffer or []
         self._triggered_buffer = None
 
+        cols = [c for c in build_column_names() if c != "labels"]
+
         valid = [f for f in raw_list if f is not None]
         if not valid:
-            return np.zeros((pad_to, NORM_FEATURES), dtype=np.float32)
+            return pd.DataFrame(columns=cols)
 
-        # (N, 65, 2) → (N, 130) then normalize via normalized_batch → (N, 108)
-        flat = np.stack(valid, axis=0).reshape(len(valid), 130).astype(np.float32)
-        out = normalized_batch(flat)  # calls select_features + body + hand norm
+        # Stack frames (N, 65, 2) and resample to pad_to via npy_to_csv
+        arr = np.stack(valid, axis=0).astype(np.float64)   # (N, 65, 2)
+        arr = normalize_frames(arr, target=pad_to)          # (pad_to, 65, 2)
 
-        # Pad / truncate to pad_to frames
-        n = len(out)
-        if n >= pad_to:
-            return out[:pad_to]
-        padded = np.zeros((pad_to, NORM_FEATURES), dtype=np.float32)
-        padded[:n] = out
-        return padded
+        body       = arr[:, 0:23, :]   # (pad_to, 23, 2)
+        left_hand  = arr[:, 23:44, :]  # (pad_to, 21, 2)
+        right_hand = arr[:, 44:65, :]  # (pad_to, 21, 2)
+
+        row: dict = {}
+
+        # Body — use 23-joint MP indices from normalized_np (correct for live data)
+        for name, mp_idx in BODY_JOINTS_INPUT_INDEX:
+            if mp_idx is not None:
+                row[f"{name}_X"] = body[:, mp_idx, 0].tolist()
+                row[f"{name}_Y"] = body[:, mp_idx, 1].tolist()
+            else:
+                # neck = midpoint(leftShoulder MP12, rightShoulder MP11)
+                row[f"{name}_X"] = ((body[:, 12, 0] + body[:, 11, 0]) / 2.0).tolist()
+                row[f"{name}_Y"] = ((body[:, 12, 1] + body[:, 11, 1]) / 2.0).tolist()
+
+        # Left hand
+        for name, mp_idx in HAND_JOINTS:
+            row[f"{name}_left_X"] = left_hand[:, mp_idx, 0].tolist()
+            row[f"{name}_left_Y"] = left_hand[:, mp_idx, 1].tolist()
+
+        # Right hand
+        for name, mp_idx in HAND_JOINTS:
+            row[f"{name}_right_X"] = right_hand[:, mp_idx, 0].tolist()
+            row[f"{name}_right_Y"] = right_hand[:, mp_idx, 1].tolist()
+
+        return pd.DataFrame([row], columns=cols)
 
     # ── Error instrumentation ────────────────────────────────────────────
 
