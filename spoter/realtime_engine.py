@@ -8,6 +8,8 @@ try:
     from .normalization.hand_normalization import normalize_single_dict as normalize_single_hand_dict
     from .normalization.body_normalization import BODY_IDENTIFIERS
     from .normalization.hand_normalization import HAND_IDENTIFIERS
+    from ..data_preprocess.normalized_np.add_label_for_spoter import buffer_to_dataframe
+    from .czech_slr_dataset import CzechSLRDataset
 except ImportError:
     print("⚠️ Warning: Could not import normalization modules. Check your folder structure.")
 
@@ -35,40 +37,29 @@ class SignLanguageEngine:
         self.hand_ids = [id + "_0" for id in HAND_IDENTIFIERS] + [id + "_1" for id in HAND_IDENTIFIERS]
         self.all_ids = BODY_IDENTIFIERS + self.hand_ids
 
-    def _internal_preprocess(self, numpy_array: np.ndarray) -> torch.Tensor:
-        # Step 1: Reshape
-        data = numpy_array.reshape(64, 54, 2)
-        
-        # Step 2: Create Dict (แบบรวดเร็ว)
-        depth_map_dict = {identifier: data[:, idx] for idx, identifier in enumerate(self.all_ids)}
-
-        # Step 3: Normalize
-        depth_map_dict = normalize_single_body_dict(depth_map_dict)
-        depth_map_dict = normalize_single_hand_dict(depth_map_dict)
-
-        # Step 4: Reconstruct Array (ใช้ stack แทนการวนลูป append)
-        output_list = [depth_map_dict[id] for id in self.all_ids]
-        output = np.stack(output_list, axis=1)
-
-        # Step 5: Convert to Tensor & Shift
-        res = torch.from_numpy(output).float().to(self.device)
-        return (res - 0.5).view(64, 108)
-
     def run_inference(self, raw_data_64_108: np.ndarray) -> dict:
         inference_start_ts = time.perf_counter()
-        preprocessed_data = self._internal_preprocess(raw_data_64_108)
+        
+        # TODO 
+        buffer = np.load(raw_data_64_108).astype(np.float32)
+        df = buffer_to_dataframe(buffer, 0)
+        dataset = CzechSLRDataset(dataset_filename="", dataframe=df, normalize=True)
+        depth_map = dataset[0]
+
+        # preprocessed_data = self._internal_preprocess(raw_data_64_108)
 
         with torch.no_grad():
-            outputs = self.model(preprocessed_data)
+            inputs = depth_map.to(self.device).float()
+            outputs = self.model(inputs)
             probabilities = torch.softmax(outputs, dim=1)
-            top_probs, top_indices = torch.topk(probabilities, 3)
+            top_probs, top_indices = torch.topk(probabilities, 5)
 
         inference_end_ts = time.perf_counter()
 
-        top_k_indices = [top_indices[0][i].item() for i in range(3)]
-        top_k_probs   = [top_probs[0][i].item()   for i in range(3)]
+        top_k_indices = [top_indices[0][i].item() for i in range(5)]
+        top_k_probs   = [top_probs[0][i].item()   for i in range(5)]
         top_k_glosses = [self.label_map.get(str(idx), "Unknown") for idx in top_k_indices]
-
+        
         return {
             "inference_start_ts": inference_start_ts,
             "inference_end_ts":   inference_end_ts,
