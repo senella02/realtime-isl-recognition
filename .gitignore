@@ -40,3 +40,4 @@ data_preprocess/*.zip
 models/*.task
 
 trigger_error_log.csv
+/TSL-ONE-S
