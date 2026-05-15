@@ -106,7 +106,7 @@ class LandmarkExtractor:
         landmarks_raw = self._build_landmarks_raw(
             pose, results.left_hand_landmarks, results.right_hand_landmarks
         )
-        bbox = self._compute_bbox(pose, w, h)
+        bbox = self._compute_bbox(pose, results.left_hand_landmarks, results.right_hand_landmarks, w, h)
 
         return FramePacket(
             frame_id=self._frame_id,
@@ -152,27 +152,34 @@ class LandmarkExtractor:
         return arr
 
     @staticmethod
-    def _compute_bbox(pose, frame_w: int, frame_h: int) -> Optional[tuple]:
-        """Adaptive body bbox — Paper Eqs. 4-6. Uses upper-body pose landmarks only."""
-        visible = [
-            (lm.x, lm.y)
-            for lm in pose[:_UPPER_BODY_COUNT]
-            if lm.visibility is not None and lm.visibility > _VIS_THRESHOLD and lm.x != 0.0
-        ]
-        if not visible:
+    def _compute_bbox(pose, left_hand, right_hand, frame_w: int, frame_h: int) -> Optional[tuple]:
+        """Adaptive body bbox — formula.md. L = pose + left hand + right hand."""
+        points: list[tuple[float, float]] = []
+
+        for lm in pose:
+            if lm.visibility is not None and lm.visibility > _VIS_THRESHOLD and lm.x != 0.0:
+                points.append((lm.x, lm.y))
+
+        for hand in (left_hand, right_hand):
+            if hand:
+                for lm in hand:
+                    if lm.x != 0.0 or lm.y != 0.0:
+                        points.append((lm.x, lm.y))
+
+        if not points:
             return None
 
-        x_min = min(x for x, _ in visible)
-        y_min = min(y for _, y in visible)
-        x_max = max(x for x, _ in visible)
-        y_max = max(y for _, y in visible)
+        x_min = min(x for x, _ in points)
+        y_min = min(y for _, y in points)
+        x_max = max(x for x, _ in points)
+        y_max = max(y for _, y in points)
 
         pad_x    = (x_max - x_min) * 0.10
         pad_y    = (y_max - y_min) * 0.10
-        head_pad = (y_max - y_min) * 0.20
+        pad_head = (y_max - y_min) * 0.20
 
         x1 = int(max(0,       (x_min - pad_x)    * frame_w))
-        y1 = int(max(0,       (y_min - head_pad)  * frame_h))
+        y1 = int(max(0,       (y_min - pad_head)  * frame_h))
         x2 = int(min(frame_w, (x_max + pad_x)    * frame_w))
         y2 = int(min(frame_h, (y_max + pad_y)    * frame_h))
 

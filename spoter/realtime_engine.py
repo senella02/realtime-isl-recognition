@@ -48,7 +48,7 @@ class SignLanguageEngine:
         # buffer = np.load(raw_data_64_108).astype(np.float32)
         buffer = raw_data_64_108.astype(np.float32)
         df = buffer_to_dataframe(buffer, 0)
-        csv_path = f"nomalized_coords_{video_name}.csv"
+        csv_path = f"nomalized_coords_{os.path.splitext(os.path.basename(video_name))[0]}.csv"
         df.to_csv(csv_path, mode="a", header=not os.path.exists(csv_path), index=False)
         dataset = CzechSLRDataset(dataset_filename="", dataframe=df, normalize=True)
         depth_map = dataset[0]

@@ -110,12 +110,12 @@ def main() -> None:
         m1.release()
         cv2.destroyAllWindows()
 
-    m3.save_trigger_log("trigger_error_log.csv")
-    log.info("-" * 60)
-    log.info("Session ended — error summary:")
-    for k, v in m3.error_summary().items():
-        log.info("  %s: %s", k, v)
-    log.info("trigger_error_log.csv saved")
+    # m3.save_trigger_log("trigger_error_log.csv")
+    # log.info("-" * 60)
+    # log.info("Session ended — error summary:")
+    # for k, v in m3.error_summary().items():
+    #     log.info("  %s: %s", k, v)
+    # log.info("trigger_error_log.csv saved")
 
 
 if __name__ == "__main__":

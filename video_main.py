@@ -329,16 +329,6 @@ class VideoStateMachine:
             "tr": self.tr,
         }
 
-    def save_trigger_log(self, path: str = "trigger_error_log_video.csv") -> None:
-        with open(path, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["timestamp", "frame_idx", "from_state", "to_state",
-                             "buffer_size", "reason", "error_label"])
-            for e in self._events:
-                writer.writerow([
-                    f"{e['timestamp']:.4f}", e["frame_idx"], e["from_state"],
-                    e["to_state"], e["buffer_size"], e["reason"], e["error_label"],
-                ])
 
     # ── Internals ──────────────────────────────────────────────────────────────
 
@@ -412,8 +402,8 @@ def main() -> None:
     parser.add_argument("--video", required=True, help="Path to input .mp4 file")
     parser.add_argument("--ta", type=int, default=5, help="Onset frames (default 5)")
     parser.add_argument("--tr", type=int, default=10, help="Rest frames to trigger (default 10)")
-    parser.add_argument("--log", default="trigger_error_log_video.csv",
-                        help="Path for trigger event CSV log")
+    # parser.add_argument("--log", default="trigger_error_log_video.csv",
+    #                     help="Path for trigger event CSV log")
     parser.add_argument("--no-display", action="store_true", help="Skip imshow")
     parser.add_argument("--display-scale", type=float, default=1.0)
     args = parser.parse_args()
@@ -437,9 +427,9 @@ def main() -> None:
 
     last_packet: Optional[FramePacket] = None
 
-    def _run_inference(se: SignEvent) -> Prediction:
+    def _run_inference(se: SignEvent, video_name: str) -> Prediction:
         norm_buf = m3.take_buffer()
-        result = m4.run_inference(norm_buf)
+        result = m4.run_inference(norm_buf, video_name)
         pred = Prediction(
             sign_id=se.sign_id,
             inference_start_ts=result["inference_start_ts"],
@@ -473,7 +463,7 @@ def main() -> None:
 
             prediction = None
             if state_update.triggered:
-                prediction = _run_inference(state_update.sign_event)
+                prediction = _run_inference(state_update.sign_event, args.video)
 
             m2.render(packet, state_update, prediction)
             m2.log(packet, state_update, prediction)
@@ -486,19 +476,19 @@ def main() -> None:
         if last_packet is not None:
             flush_update = m3.flush(last_packet)
             if flush_update is not None:
-                prediction = _run_inference(flush_update.sign_event)
+                prediction = _run_inference(flush_update.sign_event, args.video)
                 m2.render(last_packet, flush_update, prediction)
                 m2.log(last_packet, flush_update, prediction)
 
         m1.release()
         cv2.destroyAllWindows()
 
-    m3.save_trigger_log(args.log)
+    #m3.save_trigger_log(args.log)
     log.info("-" * 60)
     log.info("Session ended — summary:")
     for k, v in m3.error_summary().items():
         log.info("  %s: %s", k, v)
-    log.info("Trigger log saved → %s", args.log)
+    #log.info("Trigger log saved → %s", args.log)
 
 
 if __name__ == "__main__":
