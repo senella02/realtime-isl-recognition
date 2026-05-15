@@ -69,7 +69,7 @@ def normalize_body_inplace(seq: np.ndarray) -> None:
 
             left_eye_y = float(seq[f, BODY_COL_IDX["leftEye"] + 1])
             starting_point = [neck_x - 3 * head_metric,
-                               left_eye_y + head_metric]
+                               left_eye_y + head_metric / 2]
             ending_point   = [neck_x + 3 * head_metric,
                                starting_point[1] - 6 * head_metric]
 

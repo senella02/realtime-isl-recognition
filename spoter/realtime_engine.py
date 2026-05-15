@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import time
 import json
+import os
 
 try:
     from .normalization.body_normalization import normalize_single_dict as normalize_single_body_dict
@@ -40,13 +41,15 @@ class SignLanguageEngine:
         self.hand_ids = [id + "_0" for id in HAND_IDENTIFIERS] + [id + "_1" for id in HAND_IDENTIFIERS]
         self.all_ids = BODY_IDENTIFIERS + self.hand_ids
 
-    def run_inference(self, raw_data_64_108: np.ndarray) -> dict:
+    def run_inference(self, raw_data_64_108: np.ndarray, video_name: str = "output") -> dict:
         inference_start_ts = time.perf_counter()
         
         # TODO 
         # buffer = np.load(raw_data_64_108).astype(np.float32)
         buffer = raw_data_64_108.astype(np.float32)
         df = buffer_to_dataframe(buffer, 0)
+        csv_path = f"nomalized_coords_{video_name}.csv"
+        df.to_csv(csv_path, mode="a", header=not os.path.exists(csv_path), index=False)
         dataset = CzechSLRDataset(dataset_filename="", dataframe=df, normalize=True)
         depth_map = dataset[0]
 

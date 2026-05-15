@@ -14,6 +14,8 @@ After reshape to (frames, 108):
 """
 
 import numpy as np
+import pandas as pd
+from pathlib import Path
 from .body_normalization import normalize_body_inplace
 from .hand_normalization import normalize_hands_inplace
 
@@ -31,16 +33,16 @@ from .hand_normalization import normalize_hands_inplace
 BODY_JOINTS_INPUT_INDEX = [
     ("nose",          0),
     ("neck",          None),   # midpoint of leftShoulder(12) + rightShoulder(11)
-    ("leftEye",       5),
-    ("rightEye",      2),
-    ("leftEar",       8),
-    ("rightEar",      7),
-    ("leftShoulder",  12),
-    ("rightShoulder", 11),
-    ("leftElbow",     14),
-    ("rightElbow",    13),
-    ("leftWrist",     16),
-    ("rightWrist",    15),
+    ("leftEye",       2),
+    ("rightEye",      5),
+    ("leftEar",       7),
+    ("rightEar",      8),
+    ("leftShoulder",  11),
+    ("rightShoulder", 12),
+    ("leftElbow",     13),
+    ("rightElbow",    14),
+    ("leftWrist",     15),
+    ("rightWrist",    16),
 ]
 
 # Reuse for both hands
@@ -114,6 +116,46 @@ def select_features(frames: np.ndarray) -> np.ndarray:
     out[:, 4:24]   = body[:, 2:]    # leftEye … rightWrist
     out[:, 24:108] = hands
     return out
+
+
+def _make_column_names() -> list[str]:
+    cols: list[str] = []
+    for name, _ in BODY_JOINTS_INPUT_INDEX:
+        upper = name.upper()
+        cols += [f"{upper}_X", f"{upper}_Y"]
+    for side_idx in (0, 1):  # 0 = left hand, 1 = right hand
+        for name, _ in HAND_JOINTS_INPUT_INDEX:
+            upper = name.upper()
+            cols += [f"{upper}_{side_idx}_X", f"{upper}_{side_idx}_Y"]
+    return cols
+
+
+_COLUMN_NAMES: list[str] = _make_column_names()
+
+
+def save_raw_csv(frames: np.ndarray, video_name: str, output_dir: str | Path = ".") -> Path:
+    """
+    Select features from raw (N, 130) MediaPipe frames and save to CSV
+    before any normalization is applied.
+
+    Output file: <output_dir>/raw_coords_<video_name>.csv
+
+    Columns follow the layout produced by select_features():
+      body  → NOSE_X, NOSE_Y, NECK_X, NECK_Y, …, RIGHTWRIST_X, RIGHTWRIST_Y
+      left  → WRIST_0_X, WRIST_0_Y, THUMBCMC_0_X, …
+      right → WRIST_1_X, WRIST_1_Y, THUMBCMC_1_X, …
+
+    :param frames: (N, 130) raw MediaPipe flat array
+    :param video_name: stem used to build the filename
+    :param output_dir: directory to write into (created if absent)
+    :return: path of the written file
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"raw_coords_{video_name}.csv"
+    raw = select_features(frames)
+    pd.DataFrame(raw, columns=_COLUMN_NAMES).to_csv(path, index=False)
+    return path
 
 
 def normalized_batch(frames: np.ndarray) -> np.ndarray:
