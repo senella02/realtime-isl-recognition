@@ -133,7 +133,7 @@ class VideoLandmarkExtractor:
             frame_id=self._frame_id,
             capture_ts=capture_ts,
             image_bgr=frame,
-            bbox=LandmarkExtractor._compute_bbox(pose, w, h),
+            bbox=LandmarkExtractor._compute_bbox(pose, results.left_hand_landmarks, results.right_hand_landmarks, w, h),
             landmarks_raw=LandmarkExtractor._build_landmarks_raw(
                 pose, results.left_hand_landmarks, results.right_hand_landmarks
             ),
