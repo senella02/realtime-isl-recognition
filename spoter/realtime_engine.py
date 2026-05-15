@@ -5,15 +5,11 @@ import json
 import os
 
 try:
-    from .normalization.body_normalization import normalize_single_dict as normalize_single_body_dict
-    from .normalization.hand_normalization import normalize_single_dict as normalize_single_hand_dict
     from .normalization.body_normalization import BODY_IDENTIFIERS
     from .normalization.hand_normalization import HAND_IDENTIFIERS
     from .normalization.czech_slr_dataset import CzechSLRDataset
-    # from .normalization.add_label_for_spoter import buffer_to_dataframe
     from data_preprocess.normalized_np.add_label_for_spoter import buffer_to_dataframe
-    # from czech_slr_dataset import CzechSLRDataset
-    # from spoter.normalization.czech_slr_dataset import CzechSLRDataset
+    
 except ImportError:
     print("⚠️ Warning: Could not import normalization modules. Check your folder structure.")
 
@@ -25,7 +21,7 @@ class SignLanguageEngine:
         self.model = torch.jit.load(model_path, map_location=self.device)
         self.model.eval()
 
-        # 2. Warm-up (ฉีดไนตรัสรอไว้เลย)
+        # 2. Warm-up
         print("🔥 Warming up model...")
         dummy = torch.randn(64, 108).to(self.device)
         for _ in range(5):
@@ -43,9 +39,7 @@ class SignLanguageEngine:
 
     def run_inference(self, raw_data_64_108: np.ndarray, video_name: str = "output") -> dict:
         inference_start_ts = time.perf_counter()
-        
-        # TODO 
-        # buffer = np.load(raw_data_64_108).astype(np.float32)
+
         buffer = raw_data_64_108.astype(np.float32)
         df = buffer_to_dataframe(buffer, 0)
         csv_path = f"nomalized_coords_{os.path.splitext(os.path.basename(video_name))[0]}.csv"

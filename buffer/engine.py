@@ -177,23 +177,6 @@ class M3StateMachine:
         padded[:n] = out
         return padded
 
-    # ── Error instrumentation ────────────────────────────────────────────
-
-    def save_trigger_log(self, path: str = "trigger_error_log.csv") -> None:
-        self._engine.save_trigger_log(path)
-
-    def error_summary(self) -> dict:
-        return self._engine.error_summary()
-
-    def set_total_signs(self, n: int) -> None:
-        self._engine.set_total_signs(n)
-
-    def mark_false_start(self) -> None:
-        self._engine.mark_false_start()
-
-    def mark_missed_sign(self, frame_start: int, frame_end: int) -> None:
-        self._engine.mark_missed_sign(frame_start, frame_end)
-
     @property
     def ta(self) -> int:
         return self._engine.ta
@@ -207,7 +190,6 @@ class M3StateMachine:
     def _on_trigger(self, buffer: list) -> None:
         self._triggered = True
         self._triggered_buffer = list(buffer)
-        log.info("■ TRIGGER FIRED  buffer_length=%d", len(buffer))
 
     def _classify(self, raw: Optional[np.ndarray]) -> tuple[float, bool]:
         """
